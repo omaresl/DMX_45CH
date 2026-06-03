@@ -1,0 +1,4 @@
+../Application/app_DMXCore.c:26:6:app_DMX_DMATransfer	16	static
+../Application/app_DMXCore.c:48:6:app_DMXCore_Init	8	static
+../Application/app_DMXCore.c:63:6:app_DMX_RX_ITHandler	32	static
+../Application/app_DMXCore.c:203:13:app_DMX_StoreData	16	static

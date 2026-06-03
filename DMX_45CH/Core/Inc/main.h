@@ -46,7 +46,15 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
+#define SYSTICK_LOAD (/*SystemCoreClock*/48000000U/1000000U)
+#define SYSTICK_DELAY_CALIB (SYSTICK_LOAD >> 1)
 
+#define DELAY_US(us) \
+    do { \
+         uint32_t start = SysTick->VAL; \
+         uint32_t ticks = (us * SYSTICK_LOAD)-SYSTICK_DELAY_CALIB;  \
+         while((start - SysTick->VAL) < ticks); \
+    } while (0)
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -57,6 +65,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define TRX_IN_DE_Pin GPIO_PIN_3
+#define TRX_IN_DE_GPIO_Port GPIOA
+#define TRX_IN_RE_Pin GPIO_PIN_4
+#define TRX_IN_RE_GPIO_Port GPIOF
 
 /* USER CODE BEGIN Private defines */
 
