@@ -2120,7 +2120,16 @@ void HAL_UART_IRQHandler(UART_HandleTypeDef *huart)
 
   uint32_t errorflags;
   uint32_t errorcode;
+#if defined (USART_CR2_LINEN)
+  /* UART LIN break has been detected ----------------------------------------*/
+  if(isrflags & USART_ISR_LBDF)
+  {
+    __HAL_UART_CLEAR_IT(huart, UART_CLEAR_LBDF);
 
+    /* Call the callback function to signal LIN break detection */
+    HAL_UART_LINBreakCallback(huart);
+  }
+#endif /* USART_CR2_LINEN */
   /* If no error occurs */
   errorflags = (isrflags & (uint32_t)(USART_ISR_PE | USART_ISR_FE | USART_ISR_ORE | USART_ISR_NE | USART_ISR_RTOF));
   if (errorflags == 0U)

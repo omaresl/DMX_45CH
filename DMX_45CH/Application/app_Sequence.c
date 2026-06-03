@@ -6,6 +6,7 @@
  */
 #include <stdint.h>
 #include <stdbool.h>
+#include "main.h"
 #include "app_Sequence.h"
 #include "app_DMXCore.h"
 
@@ -521,8 +522,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* Prevent unused argument(s) compilation warning */
   UNUSED(htim);
 
-  rb_EnableSequenceFlag = true;
-  rb_SequenceTick = true;
+  if(rb_EnableSequenceFlag == false)
+  {
+	  rb_EnableSequenceFlag = true;
+	  rb_SequenceTick = true;
+	  HAL_TIM_Base_Stop_IT(&htim6);
+	  __HAL_TIM_SET_PRESCALER(&htim6,4800);
+	  __HAL_TIM_SET_AUTORELOAD(&htim6,(100));
+	  HAL_TIM_Base_Start_IT(&htim6);
+  }
+  else
+  {
+	  rb_SequenceTick = true;
+  }
 
 }
 

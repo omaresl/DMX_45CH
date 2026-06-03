@@ -41,7 +41,7 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+#define WAITCOUNTERMAX	15u
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
@@ -61,10 +61,12 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+extern TIM_HandleTypeDef htim6;
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define LED_CONTROL_SIGNAL_Pin GPIO_PIN_2
+#define LED_CONTROL_SIGNAL_GPIO_Port GPIOA
 #define TRX_IN_DE_Pin GPIO_PIN_3
 #define TRX_IN_DE_GPIO_Port GPIOA
 #define TRX_IN_RE_Pin GPIO_PIN_4

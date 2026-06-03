@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "app_WS2811.h"
 #include "app_Sequence.h"
+#include "app_DMXCore.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,15 +57,40 @@ UART_HandleTypeDef huart1;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
-static void MX_USART1_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+extern void HAL_LIN_WaitBreak_IT(UART_HandleTypeDef *huart);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+volatile uint8_t WaitState = 0;
+volatile uint16_t WaitCounter = 0;
+uint16_t DMA_ToReceive;
+extern bool DMX2DMATransferFlag;
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(huart);
+
+  HAL_LIN_WaitBreak_IT(&huart1);
+  rb_EnableSequenceFlag = false;
+  HAL_TIM_Base_Stop_IT(&htim6);
+  __HAL_TIM_SET_PRESCALER(&htim6,3662);
+  __HAL_TIM_SET_AUTORELOAD(&htim6,0xFFFF);
+  __HAL_TIM_SET_COUNTER(&htim6,0);
+  HAL_TIM_Base_Start_IT(&htim6);
+
+  DMX2DMATransferFlag = true;
+}
+
+void HAL_UART_LINBreakCallback(UART_HandleTypeDef *huart)
+{
+	HAL_UART_Receive_IT(&huart1, raw_DMX_Channels, N_RawChannels);
+}
 
 /* USER CODE END 0 */
 
@@ -98,13 +124,15 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_USART1_UART_Init();
   MX_SPI1_Init();
   MX_TIM6_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  app_DMXCore_Init();
   HAL_TIM_Base_Start_IT(&htim6);
-  HAL_SPI_Transmit_DMA(&hspi1, WS2811_Data, L_DATA_SIZE);
   app_WS2811_Init();
+  HAL_SPI_Transmit_DMA(&hspi1, WS2811_Data, L_DATA_SIZE);
+  HAL_LIN_WaitBreak_IT(&huart1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -112,7 +140,9 @@ int main(void)
   while (1)
   {
 	  app_Sequence_Main();
+	  app_DMX_DMATransfer();
 	  app_WS2811_ConvertDMXData();
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -260,16 +290,17 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 38400;
+  huart1.Init.BaudRate = 250000;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.Mode = UART_MODE_RX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_ENABLE;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT;
+  huart1.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
+  if (HAL_LIN_Init(&huart1, UART_LINBREAKDETECTLENGTH_10B) != HAL_OK)
   {
     Error_Handler();
   }
@@ -312,7 +343,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED_CONTROL_SIGNAL_GPIO_Port, LED_CONTROL_SIGNAL_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TRX_IN_DE_GPIO_Port, TRX_IN_DE_Pin, GPIO_PIN_RESET);
@@ -320,12 +351,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TRX_IN_RE_GPIO_Port, TRX_IN_RE_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PA2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  /*Configure GPIO pin : LED_CONTROL_SIGNAL_Pin */
+  GPIO_InitStruct.Pin = LED_CONTROL_SIGNAL_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(LED_CONTROL_SIGNAL_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : TRX_IN_DE_Pin */
   GPIO_InitStruct.Pin = TRX_IN_DE_Pin;

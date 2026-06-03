@@ -7,18 +7,21 @@
 C_SRCS += \
 ../Application/app_CMD.c \
 ../Application/app_DMXCore.c \
+../Application/app_LIN.c \
 ../Application/app_Sequence.c \
 ../Application/app_WS2811.c 
 
 OBJS += \
 ./Application/app_CMD.o \
 ./Application/app_DMXCore.o \
+./Application/app_LIN.o \
 ./Application/app_Sequence.o \
 ./Application/app_WS2811.o 
 
 C_DEPS += \
 ./Application/app_CMD.d \
 ./Application/app_DMXCore.d \
+./Application/app_LIN.d \
 ./Application/app_Sequence.d \
 ./Application/app_WS2811.d 
 
@@ -30,7 +33,7 @@ Application/%.o Application/%.su Application/%.cyclo: ../Application/%.c Applica
 clean: clean-Application
 
 clean-Application:
-	-$(RM) ./Application/app_CMD.cyclo ./Application/app_CMD.d ./Application/app_CMD.o ./Application/app_CMD.su ./Application/app_DMXCore.cyclo ./Application/app_DMXCore.d ./Application/app_DMXCore.o ./Application/app_DMXCore.su ./Application/app_Sequence.cyclo ./Application/app_Sequence.d ./Application/app_Sequence.o ./Application/app_Sequence.su ./Application/app_WS2811.cyclo ./Application/app_WS2811.d ./Application/app_WS2811.o ./Application/app_WS2811.su
+	-$(RM) ./Application/app_CMD.cyclo ./Application/app_CMD.d ./Application/app_CMD.o ./Application/app_CMD.su ./Application/app_DMXCore.cyclo ./Application/app_DMXCore.d ./Application/app_DMXCore.o ./Application/app_DMXCore.su ./Application/app_LIN.cyclo ./Application/app_LIN.d ./Application/app_LIN.o ./Application/app_LIN.su ./Application/app_Sequence.cyclo ./Application/app_Sequence.d ./Application/app_Sequence.o ./Application/app_Sequence.su ./Application/app_WS2811.cyclo ./Application/app_WS2811.d ./Application/app_WS2811.o ./Application/app_WS2811.su
 
 .PHONY: clean-Application
 

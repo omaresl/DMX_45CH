@@ -1,5 +1,6 @@
 "./Application/app_CMD.o"
 "./Application/app_DMXCore.o"
+"./Application/app_LIN.o"
 "./Application/app_Sequence.o"
 "./Application/app_WS2811.o"
 "./Core/Src/main.o"

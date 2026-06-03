@@ -33,7 +33,7 @@ void app_DMX_DMATransfer(void)
 		{
 			if((DMX_StartAddress + l_DMX_ChannelIDX) <= N_RawChannels)
 			{
-				DMX_Channels[l_DMX_ChannelIDX] = raw_DMX_Channels[DMX_StartAddress + l_DMX_ChannelIDX];
+				DMX_Channels[l_DMX_ChannelIDX] = raw_DMX_Channels[DMX_StartAddress + l_DMX_ChannelIDX + 1u];
 			}
 			else
 			{
@@ -48,7 +48,7 @@ static void app_DMX_StoreData(uint8_t data, uint32_t errorflags);
 void app_DMXCore_Init(void)
 {
 	Flash_Read_Data(EEPROM_START_ADDRESS, EEPROM_BlockTable, 1u);
-	if(EEPROM_BlockTable[0] == 0xFFFFFFFF)
+	if(EEPROM_BlockTable[0] > (N_RawChannels - N_Channels))
 	{
 		DMX_StartAddress = 1u;
 		EEPROM_BlockTable[0] = DMX_StartAddress;
