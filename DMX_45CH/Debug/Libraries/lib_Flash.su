@@ -1,2 +1,0 @@
-../Libraries/lib_Flash.c:11:10:Flash_Write_Data	56	static
-../Libraries/lib_Flash.c:61:6:Flash_Read_Data	24	static

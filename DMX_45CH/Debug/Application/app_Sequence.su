@@ -1,3 +1,0 @@
-../Application/app_Sequence.c:520:6:HAL_TIM_PeriodElapsedCallback	16	static
-../Application/app_Sequence.c:542:6:app_Sequence_Main	8	static
-../Application/app_Sequence.c:558:6:app_SequenceCommandExec	24	static

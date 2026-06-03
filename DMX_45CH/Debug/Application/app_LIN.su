@@ -1,2 +1,0 @@
-../Application/app_LIN.c:11:6:HAL_LIN_WaitBreak_IT	40	static,ignoring_inline_asm
-../Application/app_LIN.c:31:13:UART_RxISR_8BIT_LIN	16	static

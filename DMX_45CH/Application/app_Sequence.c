@@ -6,7 +6,9 @@
  */
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include "main.h"
+#include "app_WS2811.h"
 #include "app_Sequence.h"
 #include "app_DMXCore.h"
 
@@ -524,6 +526,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
   if(rb_EnableSequenceFlag == false)
   {
+	  memset(raw_DMX_Channels,0x00,N_RawChannels);
+	  memset(DMX_Channels,0x00,N_Channels);
 	  rb_EnableSequenceFlag = true;
 	  rb_SequenceTick = true;
 	  HAL_TIM_Base_Stop_IT(&htim6);

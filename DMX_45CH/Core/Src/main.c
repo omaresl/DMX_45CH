@@ -80,7 +80,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   rb_EnableSequenceFlag = false;
   HAL_TIM_Base_Stop_IT(&htim6);
   __HAL_TIM_SET_PRESCALER(&htim6,3662);
-  __HAL_TIM_SET_AUTORELOAD(&htim6,0xFFFF);
+  __HAL_TIM_SET_AUTORELOAD(&htim6,10000);
   __HAL_TIM_SET_COUNTER(&htim6,0);
   HAL_TIM_Base_Start_IT(&htim6);
 
@@ -108,7 +108,8 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+
+	HAL_Init();
 
   /* USER CODE BEGIN Init */
 

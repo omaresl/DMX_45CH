@@ -1,4 +1,0 @@
-../Application/app_DMXCore.c:26:6:app_DMX_DMATransfer	4
-../Application/app_DMXCore.c:48:6:app_DMXCore_Init	2
-../Application/app_DMXCore.c:63:6:app_DMX_RX_ITHandler	18
-../Application/app_DMXCore.c:203:13:app_DMX_StoreData	3
