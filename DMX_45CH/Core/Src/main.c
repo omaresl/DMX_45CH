@@ -89,7 +89,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_LINBreakCallback(UART_HandleTypeDef *huart)
 {
-	HAL_UART_Receive_IT(&huart1, raw_DMX_Channels, N_RawChannels);
+	HAL_UART_Receive_IT(&huart1, raw_DMX_Channels, (DMX_StartAddress + N_Channels + 1u));
 }
 
 /* USER CODE END 0 */
@@ -108,8 +108,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-
-	HAL_Init();
+  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -255,7 +254,7 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 4800;
+  htim6.Init.Prescaler = 480;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim6.Init.Period = 100;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;

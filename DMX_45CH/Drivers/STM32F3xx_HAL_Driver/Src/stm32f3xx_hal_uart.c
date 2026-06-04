@@ -208,6 +208,7 @@ static void UART_TxISR_16BIT(UART_HandleTypeDef *huart);
 static void UART_EndTransmit_IT(UART_HandleTypeDef *huart);
 static void UART_RxISR_8BIT(UART_HandleTypeDef *huart);
 static void UART_RxISR_16BIT(UART_HandleTypeDef *huart);
+extern void HAL_UART_LINBreakCallback(UART_HandleTypeDef *huart);
 /**
   * @}
   */
