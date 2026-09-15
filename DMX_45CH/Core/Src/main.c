@@ -410,22 +410,19 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_CONTROL_SIGNAL_GPIO_Port, LED_CONTROL_SIGNAL_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(TRX_IN_DE_GPIO_Port, TRX_IN_DE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LED_CONTROL_SIGNAL_Pin|TRX_IN_DE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TRX_IN_RE_GPIO_Port, TRX_IN_RE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, LAMP_8_Pin|LAMP_7_Pin|LAMP_6_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, LAMP_8_Pin|LAMP_7_Pin|LAMP_6_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LAMP_5_GPIO_Port, LAMP_5_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LAMP_5_GPIO_Port, LAMP_5_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LAMP_4_Pin|LAMP_3_Pin|LAMP_2_Pin|LAMP_1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, LAMP_4_Pin|LAMP_3_Pin|LAMP_2_Pin|LAMP_1_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : LED_CONTROL_SIGNAL_Pin */
   GPIO_InitStruct.Pin = LED_CONTROL_SIGNAL_Pin;
@@ -468,19 +465,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LAMP_5_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LAMP_4_Pin LAMP_3_Pin LAMP_2_Pin */
-  GPIO_InitStruct.Pin = LAMP_4_Pin|LAMP_3_Pin|LAMP_2_Pin;
+  /*Configure GPIO pins : LAMP_4_Pin LAMP_3_Pin LAMP_2_Pin LAMP_1_Pin */
+  GPIO_InitStruct.Pin = LAMP_4_Pin|LAMP_3_Pin|LAMP_2_Pin|LAMP_1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LAMP_1_Pin */
-  GPIO_InitStruct.Pin = LAMP_1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LAMP_1_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
