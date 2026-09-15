@@ -26,7 +26,7 @@ void app_WS2811_ConvertDMXData(void)
 
 	WS2811_Data_IDX = 0;
 
-	for(DMX_Data_IDX = 0; DMX_Data_IDX < N_Channels; DMX_Data_IDX++)
+	for(DMX_Data_IDX = WS2811_DMX_OFFSET; DMX_Data_IDX < N_Channels; DMX_Data_IDX++)
 	{
 		/* Convert 1 byte to 8bits */
 		for(lub_BitCount = 0; lub_BitCount < 8u; lub_BitCount++)

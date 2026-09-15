@@ -71,6 +71,25 @@ extern TIM_HandleTypeDef htim6;
 #define TRX_IN_DE_GPIO_Port GPIOA
 #define TRX_IN_RE_Pin GPIO_PIN_4
 #define TRX_IN_RE_GPIO_Port GPIOF
+#define ZERO_CROSS_Pin GPIO_PIN_12
+#define ZERO_CROSS_GPIO_Port GPIOB
+#define ZERO_CROSS_EXTI_IRQn EXTI15_10_IRQn
+#define LAMP_8_Pin GPIO_PIN_10
+#define LAMP_8_GPIO_Port GPIOC
+#define LAMP_7_Pin GPIO_PIN_11
+#define LAMP_7_GPIO_Port GPIOC
+#define LAMP_6_Pin GPIO_PIN_12
+#define LAMP_6_GPIO_Port GPIOC
+#define LAMP_5_Pin GPIO_PIN_2
+#define LAMP_5_GPIO_Port GPIOD
+#define LAMP_4_Pin GPIO_PIN_5
+#define LAMP_4_GPIO_Port GPIOB
+#define LAMP_3_Pin GPIO_PIN_6
+#define LAMP_3_GPIO_Port GPIOB
+#define LAMP_2_Pin GPIO_PIN_7
+#define LAMP_2_GPIO_Port GPIOB
+#define LAMP_1_Pin GPIO_PIN_8
+#define LAMP_1_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

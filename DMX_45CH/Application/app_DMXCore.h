@@ -16,7 +16,7 @@
 
 /* Channels Supported */
 
-#define N_Channels	45u
+#define N_Channels	54u
 
 #define N_RawChannels 	513u /* 512 + 1 (Start) */
 

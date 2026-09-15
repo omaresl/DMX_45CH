@@ -8,7 +8,10 @@
 #ifndef APP_WS2811_H_
 #define APP_WS2811_H_
 
-#define WS2811_CH		(8*45)
+#include "app_DMXCore.h"
+
+#define WS2811_DMX_OFFSET	(9u) /* DMX channels 1..8: AC lamps, channel 9 unused, LEDs from 10 */
+#define WS2811_CH		(8u*(N_Channels-WS2811_DMX_OFFSET))
 #define WS2811_BREAK	(160)
 #define L_DATA_SIZE	(WS2811_CH + WS2811_BREAK)
 #define TRUE_DATA	0xFC
