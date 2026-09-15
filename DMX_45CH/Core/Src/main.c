@@ -66,9 +66,6 @@ extern void HAL_LIN_WaitBreak_IT(UART_HandleTypeDef *huart);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-volatile uint8_t WaitState = 0;
-volatile uint16_t WaitCounter = 0;
-uint16_t DMA_ToReceive;
 extern bool DMX2DMATransferFlag;
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -89,7 +86,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_LINBreakCallback(UART_HandleTypeDef *huart)
 {
-	HAL_UART_Receive_IT(&huart1, raw_DMX_Channels, (DMX_StartAddress + N_Channels + 1u));
+	uint16_t l_RXSize;
+
+	if(huart1.RxState == HAL_UART_STATE_BUSY_RX)
+	{
+		(void)HAL_UART_AbortReceive(&huart1);
+	}
+
+	l_RXSize = (uint16_t)(DMX_StartAddress + N_Channels + 1u);
+	if(l_RXSize > (uint16_t)N_RawChannels)
+	{
+		l_RXSize = (uint16_t)N_RawChannels;
+	}
+
+	HAL_UART_Receive_IT(&huart1, raw_DMX_Channels, l_RXSize);
 }
 
 /* USER CODE END 0 */
@@ -298,7 +308,8 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_ENABLE;
-  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXINVERT_INIT|UART_ADVFEATURE_RXOVERRUNDISABLE_INIT;
+  huart1.AdvancedInit.RxPinLevelInvert = UART_ADVFEATURE_RXINV_ENABLE;
   huart1.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
   if (HAL_LIN_Init(&huart1, UART_LINBREAKDETECTLENGTH_10B) != HAL_OK)
   {
