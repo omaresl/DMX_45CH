@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>DMX_45CH – Secuencias (AC cascade + LED rainbow)</title>
+<style>
+  body { background:#14161a; color:#d5d9e0; font-family:ui-monospace,Consolas,monospace; margin:0; padding:20px; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .sub { color:#8a92a0; font-size:12px; margin-bottom:18px; }
+  .panel { background:#1c2026; border:1px solid #2a3038; border-radius:10px; padding:16px; margin-bottom:18px; }
+  .panel h2 { font-size:13px; margin:0 0 12px; color:#9fb0ff; font-weight:600; }
+  .lamp-row, .pixel-row { display:flex; gap:8px; align-items:flex-end; }
+  .lamp { width:52px; text-align:center; }
+  .lamp .hood { width:52px; height:34px; border-radius:26px 26px 14px 14px; background:#262b33; border:2px solid #39404c; display:flex; align-items:center; justify-content:center; }
+  .lamp .hood .bulb { width:22px; height:22px; border-radius:50%; background:#111; }
+  .lamp .cap { width:52px; height:8px; background:#39404c; border-radius:2px 2px 6px 6px; margin-top:2px; }
+  .lamp .label { font-size:11px; color:#8a92a0; margin-top:4px; }
+  .lamp .val { font-size:11px; color:#c9d1dc; }
+  .pixel { width:34px; height:34px; border-radius:6px; border:2px solid #2a3038; }
+  .pixel .label { font-size:9px; color:#8a92a0; text-align:center; margin-top:4px; }
+  .bar { height:6px; background:#262b33; border-radius:3px; margin-top:6px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:#6f86ff; }
+  .status { font-size:12px; color:#7fd17f; }
+  .tick { color:#6c7280; }
+</style>
+</head>
+<body>
+  <h1>DMX_45CH — Vista previa de secuencias</h1>
+  <div class="sub">Simula exactamente el VM de <span style="color:#9fb0ff">app_Sequence.c</span>: FOCOS AC mencao 0..7 (cascada) y LEDs WS2811 9..53 (arcoíris por pixel). Tick = 12&nbsp;ms (acelerado). Valores limitados a 100.</div>
+
+  <div class="status" id="status"></div>
+
+  <div class="panel">
+    <h2>Focos AC — DMX 0..7 (cascada up/down)</h2>
+    <div class="lamp-row" id="lampRow"></div>
+  </div>
+
+  <div class="panel">
+    <h2>LEDs WS2811 — DMX 9..53 (15&nbsp;píxeles RGB, matiz distinto por pixel)</h2>
+    <div class="pixel-row" id="pixelRow"></div>
+  </div>
+
+<script>
+// ---------- configuración (macros del firmware) ----------
+const SEQUENCE_DMX_MAX_VALUE = 100;
+const AC_CASCADE_STAGGER  = 8;
+const AC_CASCADE_FADE_TICK= 2;
+const AC_CASCADE_HOLD     = 30;
+const FADE_UP_STEP = 1;
+const PWM_MAX = 200, PWM_MIN = 0;
+
+const WS2811_DMX_OFFSET = 9;
+const N_CHANNELS = 54;
+const RAINBOW_HUE_STEP  = 17;
+const RAINBOW_HUE_SPEED = 1;
+const RAINBOW_FRAME_DIV = 8;
+
+const N_AC = 8;
+const N_PIXELS = (N_CHANNELS - WS2811_DMX_OFFSET) / 3; // 15
+
+// ---------- VM (igual que app_SequenceCommandExec) ----------
+const C = ['init_frame','select_ch','set_ch_data','set_time','time_wait',
+           'end_frame','jump','fadeup','fadedown','init_loop','check_loop'];
+function T(cmd,param){return {cmd,param};}
+const S = (ch,data)=>[T('select_ch',ch),T('set_ch_data',data)];
+const FU = (ch,data)=>[T('select_ch',ch),T('fadeup',data)];
+const FD = (ch,data)=>[T('select_ch',ch),T('fadedown',data)];
+const WAIT=t=>[T('set_time',t),T('time_wait',0)];
+
+// ---- tabla ACSequence[] ----
+let ACSequence=[];
+for(let ch=0;ch<N_AC;ch++) ACSequence.push(...WAIT(AC_CASCADE_STAGGER), T('init_loop',SEQUENCE_DMX_MAX_VALUE), ...FU(ch,FADE_UP_STEP), ...WAIT(AC_CASCADE_FADE_TICK), T('check_loop',0));
+ACSequence.push(...WAIT(AC_CASCADE_HOLD));
+for(let ch=N_AC-1;ch>=0;ch--) ACSequence.push(...WAIT(AC_CASCADE_STAGGER), T('init_loop',SEQUENCE_DMX_MAX_VALUE), ...FD(ch,FADE_UP_STEP), ...WAIT(AC_CASCADE_FADE_TICK), T('check_loop',0));
+ACSequence.push(...WAIT(AC_CASCADE_HOLD), T('jump',0));
+
+function makeState(){return {chIndex:0,step:0,time:0,loop:0,first:0};}
+
+const DMX = new Array(N_CHANNELS).fill(0);
+const acState = makeState();
+
+function execVM(table, st){
+  let run=true;
+  while(run){
+    const e = table[st.step];
+    switch(e.cmd){
+      case 'init_frame':  st.step++; break;
+      case 'end_frame':   run=false; st.step++; break;
+      case 'select_ch':   st.chIndex=e.param; st.step++; break;
+      case 'set_ch_data': DMX[st.chIndex]=e.param; st.step++; break;
+      case 'set_time':    st.time=e.param; st.step++; break;
+      case 'time_wait':
+        if(st.time>0){ st.time--; run=false; } else st.step++;
+        break;
+      case 'jump':        st.step=e.param; break;
+      case 'fadeup':
+        if(DMX[st.chIndex]<PWM_MAX){
+          if(PWM_MAX-DMX[st.chIndex]>=e.param) DMX[st.chIndex]+=e.param;
+          else DMX[st.chIndex]=PWM_MAX;
+        }
+        st.step++; break;
+      case 'fadedown':
+        if(DMX[st.chIndex]>PWM_MIN){
+          if(DMX[st.chIndex]-PWM_MIN>=e.param) DMX[st.chIndex]-=e.param;
+          else DMX[st.chIndex]=PWM_MIN;
+        }
+        st.step++; break;
+      case 'init_loop':   st.loop=e.param; st.first=st.step+1; st.step++; break;
+      case 'check_loop':
+        if(st.loop>0){ st.loop--; st.step=st.first; } else st.step++;
+        break;
+      default: run=false; st.step=0; break;
+    }
+  }
+}
+
+// ---------- rueda de color (igual que Sequence_RainbowWheelRGB) ----------
+function wheelRGB(hue){
+  hue &= 0xFF;
+  const seg = Math.floor(hue/43);
+  const pos = hue%43;
+  const val = Math.round(pos*255/42);
+  let r=0,g=0,b=0;
+  switch(seg){
+    case 0: r=255; g=val; b=0; break;
+    case 1: r=255-val; g=255; b=0; break;
+    case 2: r=0; g=255; b=val; break;
+    case 3: r=0; g=255-val; b=255; break;
+    case 4: r=val; g=0; b=255; break;
+    default: r=255; g=0; b=255-val; break;
+  }
+  return {r,g,b};
+}
+
+// ---------- dibujar ----------
+const lampRow = document.getElementById('lampRow');
+for(let i=0;i<N_AC;i++){
+  const d=document.createElement('div'); d.className='lamp';
+  d.innerHTML = `<div class="hood"><div class="bulb"></div></div><div class="cap"></div><div class="label">CH${i}</div><div class="val">0</div><div class="bar"><i></i></div>`;
+  lampRow.appendChild(d);
+}
+const pixelRow = document.getElementById('pixelRow');
+for(let i=0;i<N_PIXELS;i++){
+  const d=document.createElement('div'); d.className='pixel';
+  d.style.background='#0d0f12';
+  d.innerHTML = `<div style="margin-top:2px">P${String(i).padStart(2,'0')}</div>`;
+  pixelRow.appendChild(d);
+}
+const lamps  = [...lampRow.children];
+const pixels = [...pixelRow.children];
+const statusEl = document.getElementById('status');
+
+let tick=0, baseHue=0, frameCounter=0;
+
+function frame(){
+  tick++;
+  // 1 tick del MT cada ~12ms reales
+  execVM(ACSequence, acState);
+  frameCounter++;
+  if(frameCounter>=RAINBOW_FRAME_DIV){ frameCounter=0; baseHue=(baseHue+RAINBOW_HUE_SPEED)&0xFF; }
+  for(let p=0;p<N_PIXELS;p++){
+    const hue=(baseHue + p*RAINBOW_HUE_STEP)&0xFF;
+    const {r,g,b}=wheelRGB(hue);
+    const ch=WS2811_DMX_OFFSET+p*3;
+    DMX[ch]=Math.round(r*SEQUENCE_DMX_MAX_VALUE/255);
+    DMX[ch+1]=Math.round(g*SEQUENCE_DMX_MAX_VALUE/255);
+    DMX[ch+2]=Math.round(b*SEQUENCE_DMX_MAX_VALUE/255);
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+
+function draw(){
+  lamps.forEach((l,i)=>{
+    const v=DMX[i];
+    const bulb=l.querySelector('.bulb');
+    const br=v/SEQUENCE_DMX_MAX_VALUE;
+    bulb.style.background = `rgb(${Math.round(255*br)},${Math.round(235*br)},${Math.round(190*br)})`;
+    bulb.style.boxShadow = v>0 ? `0 0 ${6+14*br}px rgba(255,235,170,${0.35+0.6*br})` : 'none';
+    l.querySelector('.val').textContent = v;
+    l.querySelector('.bar i').style.width = (v/SEQUENCE_DMX_MAX_VALUE*100)+'%';
+  });
+  pixels.forEach((px,p)=>{
+    const ch=WS2811_DMX_OFFSET+p*3;
+    const r=DMX[ch], g=DMX[ch+1], b=DMX[ch+2];
+    px.style.background=`rgb(${r*2.55|0},${g*2.55|0},${b*2.55|0})`;
+    px.style.boxShadow = (r||g||b) ? `0 0 8px rgb(${r*2.55|0},${g*2.55|0},${b*2.55|0})` : 'none';
+  });
+  statusEl.textContent = `tick ${tick} · baseHue ${baseHue} · AC step ${acState.step}/${ACSequence.length}`;
+  statusEl.className='status';
+}
+
+frame();
+</script>
+</body>
+</html>
