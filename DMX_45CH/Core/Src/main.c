@@ -479,6 +479,15 @@ static void MX_GPIO_Init(void)
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* ZERO_CROSS EXTI disabled until TIM2 (AC phase timer) is initialized (re-enabled in main) */
   HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+
+  /* LED_CONTROL_SIGNAL (PA2) level: default LOW (HW Con Resistencia).
+     Enabled HIGH only for HW Sin Resistencia.
+     Configured via preprocessor define per build configuration. */
+#ifdef HW_SIN_RESISTENCIA
+  HAL_GPIO_WritePin(LED_CONTROL_SIGNAL_GPIO_Port, LED_CONTROL_SIGNAL_Pin, GPIO_PIN_SET);
+#else
+  HAL_GPIO_WritePin(LED_CONTROL_SIGNAL_GPIO_Port, LED_CONTROL_SIGNAL_Pin, GPIO_PIN_RESET);
+#endif
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
