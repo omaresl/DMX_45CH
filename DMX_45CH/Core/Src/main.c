@@ -25,6 +25,7 @@
 #include "app_Sequence.h"
 #include "app_DMXCore.h"
 #include "app_ACControl.h"
+#include "app_SafeState.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -539,7 +540,9 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+  app_SafeState_OutputsOff();
   __disable_irq();
+  NVIC_SystemReset();
   while (1)
   {
   }
