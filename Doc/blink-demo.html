@@ -15,8 +15,8 @@
 </head>
 <body>
 <h2>DMX_45CH visual-ACK blink demo</h2>
-<p>Models <code>app_CmdBlink</code> (1 s non-blocking override) + <code>app_CMD</code> triggers.
-LEDs only; <code>DMX_Channels</code> untouched.</p>
+<p>Models <code>app_CmdBlink</code> (5 Hz strobe: 100 ms color / 100 ms DMX,
+1 s) + <code>app_CMD</code> triggers. LEDs only; <code>DMX_Channels</code> untouched.</p>
 <div id="strip"></div>
 <div>
   <button data-cmd="GET_INFO">GET_INFO (cyan)</button>
@@ -37,7 +37,7 @@ for (let i = 0; i < 15; i++) {
   const d = document.createElement("div");
   d.className = "px"; strip.appendChild(d); pixels.push(d);
 }
-let expiry = 0, timer = null;
+let expiry = 0, start = 0, timer = null, color = null;
 function stamp() { return (performance.now() / 1000).toFixed(2) + "s"; }
 function say(m) {
   const d = document.createElement("div");
@@ -47,13 +47,15 @@ function paint(c) {
   pixels.forEach(p => p.style.background = c ? `rgb(${c[0]},${c[1]},${c[2]})` : "#222");
 }
 function tick() {
-  if (Date.now() >= expiry) { paint(null); timer = null; say("blink expired -> DMX data"); return; }
+  const now = Date.now();
+  if (now >= expiry) { paint(null); timer = null; say("blink expired -> DMX data"); return; }
+  paint(Math.floor((now - start) / 100) % 2 ? null : color); // 5 Hz strobe
   timer = setTimeout(tick, 50);
 }
-function blink(name, color) {
-  expiry = Date.now() + BLINK_MS;
+function blink(name, c) {
+  color = c; start = Date.now(); expiry = start + BLINK_MS;
   paint(color);
-  say(name + " accepted -> RGB(" + color + ") 1 s");
+  say(name + " accepted -> RGB(" + color + ") strobe 5 Hz x 1 s");
   if (!timer) timer = setTimeout(tick, 50);
 }
 document.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {

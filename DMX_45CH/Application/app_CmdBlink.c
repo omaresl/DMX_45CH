@@ -1,15 +1,18 @@
 /*
  * app_CmdBlink.c
  *
- * Visual ACK: solid RGB blink on the LED channels for accepted commands.
- * Fills WS2811_Data with the color bit encoding (0xFC/0xC0, same convention
- * as app_WS2811_ConvertDMXData) while active; DMX_Channels untouched.
+ * Visual ACK: 5 Hz strobe (color vs DMX state) on the LED channels for
+ * accepted commands. Fills WS2811_Data with the color bit encoding
+ * (0xFC/0xC0, same convention as app_WS2811_ConvertDMXData) on even
+ * 100 ms phases; odd phases fall back to normal DMX conversion.
+ * DMX_Channels untouched.
  */
 #include "main.h"
 #include "app_CmdBlink.h"
 #include "app_WS2811.h"
 
 static bool rb_BlinkActive = false;
+static uint32_t rul_BlinkStart = 0u;
 static uint32_t rul_BlinkExpiry = 0u;
 static uint8_t rub_BlinkRGB[3u];
 
@@ -18,7 +21,8 @@ void app_CmdBlink_Trigger(uint8_t l_R, uint8_t l_G, uint8_t l_B)
 	rub_BlinkRGB[0u] = l_R;
 	rub_BlinkRGB[1u] = l_G;
 	rub_BlinkRGB[2u] = l_B;
-	rul_BlinkExpiry = HAL_GetTick() + (uint32_t)CMD_BLINK_MS;
+	rul_BlinkStart = HAL_GetTick();
+	rul_BlinkExpiry = rul_BlinkStart + (uint32_t)CMD_BLINK_MS;
 	rb_BlinkActive = true;
 }
 
@@ -27,6 +31,7 @@ bool app_CmdBlink_Apply(void)
 	uint16_t l_IDX;
 	uint8_t l_Bit;
 	uint8_t l_Value;
+	uint32_t l_Elapsed;
 
 	if(rb_BlinkActive == false)
 	{
@@ -36,6 +41,12 @@ bool app_CmdBlink_Apply(void)
 	if((int32_t)(HAL_GetTick() - rul_BlinkExpiry) >= 0)
 	{
 		rb_BlinkActive = false;
+		return false;
+	}
+	l_Elapsed = HAL_GetTick() - rul_BlinkStart;
+	if(((l_Elapsed / (uint32_t)CMD_STROBE_HALF_MS) % 2u) != 0u)
+	{
+		/* Odd phase: show normal DMX state */
 		return false;
 	}
 	for(l_IDX = 0u; l_IDX < (uint16_t)(N_Channels - WS2811_DMX_OFFSET); l_IDX++)

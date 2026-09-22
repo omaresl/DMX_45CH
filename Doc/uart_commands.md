@@ -89,10 +89,11 @@ ajustar límites de potencia, consultar estado, etc.
   Lecturas (`GET_INFO`/`STATUS`, `DISCOVER`) responden siempre; con N>1 el
   flujo es DISCOVER → SELECT → configurar.
 
-## Visual ACK (1 s, solo LEDs)
+## Visual ACK (5 Hz strobe x 1 s, solo LEDs)
 
-Cada comando válido destella los 45 canales LED (`app_CmdBlink`, no
-bloqueante, `DMX_Channels` intacto): `GET_INFO` cian, `DISCOVER` magenta,
-`SELECT` verde (solo la coincidente), `DESELECT` azul. Tramas inválidas no
-destellan. Simulación y timeline: `Doc/blink-simulation.py` (genera
-`Doc/blink-simulation.svg`; `--animate` para replay en terminal).
+Cada comando válido alterna color/DMX a 5 Hz durante 1 s (`app_CmdBlink`,
+no bloqueante, `DMX_Channels` intacto): `GET_INFO` cian, `DISCOVER`
+magenta, `SELECT` verde (solo la coincidente), `DESELECT` azul. Tramas
+inválidas no destellan. Simulación y timeline: `Doc/blink-simulation.py`
+(genera `Doc/blink-simulation.svg`; `--animate` para replay en terminal),
+demo interactiva: `Doc/blink-demo.html`.

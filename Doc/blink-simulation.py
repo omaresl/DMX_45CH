@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Visual-ACK blink simulation for DMX_45CH app_CmdBlink + app_CMD.
 
-Models: 1 s non-blocking RGB override, per-command colors, DISCOVER slot
-wait (blocking HAL_Delay), SELECT match-only blink, IWDG 410 ms budget.
+Models: 5 Hz strobe (100 ms color / 100 ms DMX) for 1 s, per-command
+colors, DISCOVER slot wait (blocking HAL_Delay), SELECT match-only blink,
+IWDG 410 ms budget.
 
 Usage:
     python3 blink-simulation.py            # ASCII timeline + write SVG
@@ -13,6 +14,7 @@ import sys
 import time
 
 BLINK_MS = 1000
+STROBE_HALF_MS = 100
 IWDG_MS = 410
 COLORS = {
     "GET_INFO": (0, 255, 255),
@@ -36,20 +38,25 @@ DMX = None
 def simulate(step_ms=10):
     """Return list of (t_start, t_end, color_or_None, label)."""
     segs, ev_i = [], 0
-    active, expiry = DMX, -1
+    active, start, expiry = DMX, 0, -1
     cur_start, cur_col = 0, DMX
     for t in range(0, END_MS + step_ms, step_ms):
         while ev_i < len(EVENTS) and EVENTS[ev_i][0] <= t:
             _, e, extra = EVENTS[ev_i]
             ev_i += 1
             if e == "DISCOVER":
-                active, expiry = COLORS[e], t + extra + BLINK_MS
+                active, start, expiry = COLORS[e], t, t + extra + BLINK_MS
             elif e == "SELECT mismatch":
                 pass
             else:
                 key = "SELECT_MATCH" if e.startswith("SELECT") else e
-                active, expiry = COLORS[key], t + BLINK_MS
-        col = active if (active is not DMX and t < expiry) else DMX
+                active, start, expiry = COLORS[key], t, t + BLINK_MS
+        if active is DMX or t >= expiry:
+            col = DMX
+        elif ((t - start) // STROBE_HALF_MS) % 2:
+            col = DMX  # odd phase: normal DMX state
+        else:
+            col = active
         if col != cur_col:
             segs.append((cur_start, t, cur_col))
             cur_start, cur_col = t, col
