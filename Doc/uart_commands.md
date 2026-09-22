@@ -34,13 +34,15 @@ ajustar límites de potencia, consultar estado, etc.
 | `CMD_GET_INFO` | `0x01` | — | ID único 96 bits (`0x1FFFF7AC`), versión FW, modelo, start address |
 | `CMD_SET_DMX_ADDR` | `0x02` | addr u16 (big-endian) | ACK/NACK |
 | `CMD_SET_POWER_LIMIT` | `0x03` | limite secuencias u8, limite AC u8, limite LED u8 | ACK/NACK |
-| `CMD_GET_STATUS` | `0x04` | — | limites activos, addr, estado |
+| `CMD_GET_STATUS` | `0x04` | — | addr u16, limites, estado, limite LED (6 B) |
 
 ### Respuestas
 
 - Invertir dirección del transceiver (`DE=1`, `RE=0`), configurar TX invert
   (misma técnica que el viejo `app_CMD`), `HAL_UART_Transmit` bloqueante,
   restaurar `DE/RE` y rearmar `HAL_LIN_WaitBreak_IT`.
+- Byte `estado` de `GET_STATUS`: bit0 = secuencia corriendo (DMX perdido),
+  bit1 = unidad seleccionada, bits 2-7 reservados.
 
 ## Límites de potencia → runtime en EEPROM
 
@@ -74,7 +76,7 @@ ajustar límites de potencia, consultar estado, etc.
 - [x] `CMD_GET_INFO`
 - [x] `CMD_SET_DMX_ADDR` + EEPROM
 - [x] `CMD_SET_POWER_LIMIT` + EEPROM
-- [ ] `CMD_GET_STATUS`
+- [x] `CMD_GET_STATUS`
 - [x] `CMD_DISCOVER` (slotted backoff, 16 x 5 ms)
 - [x] `CMD_SELECT_UID` / `CMD_DESELECT` (RAM selection, selective writes)
 - [x] Respuestas por el transceiver

@@ -151,6 +151,29 @@ static void app_CMD_SetPowerLimit(uint8_t l_SeqLimit, uint8_t l_AcLimit, uint8_t
 	app_CMD_Respond(l_Ack, (uint16_t)CMD_ACK_LENGTH);
 }
 
+static void app_CMD_GetStatus(void)
+{
+	uint8_t l_Response[CMD_GET_STATUS_LENGTH];
+	uint8_t l_State = 0u;
+
+	l_Response[0u] = (uint8_t)((DMX_StartAddress >> 8u) & 0xFFu);
+	l_Response[1u] = (uint8_t)(DMX_StartAddress & 0xFFu);
+	l_Response[2u] = Sequence_DMX_MaxValue;
+	l_Response[3u] = ACControl_ValueMax;
+	if(rb_EnableSequenceFlag != false)
+	{
+		l_State |= 0x01u; /* sequence running (DMX lost) */
+	}
+	if(rb_CMD_Selected != false)
+	{
+		l_State |= 0x02u; /* this unit selected */
+	}
+	l_Response[4u] = l_State;
+	l_Response[5u] = Led_DMX_MaxValue;
+	app_CmdBlink_Trigger(255u, 255u, 255u); /* white */
+	app_CMD_Respond(l_Response, (uint16_t)CMD_GET_STATUS_LENGTH);
+}
+
 static void app_CMD_SetDmxAddr(void)
 {	uint16_t l_Address;
 	uint8_t l_Ack[CMD_ACK_LENGTH];
@@ -250,8 +273,13 @@ void app_CMD_Exec(void)
 		}
 		break;
 	case CMD_GET_STATUS:
+		if(l_LEN == 0u)
+		{
+			app_CMD_GetStatus();
+		}
+		break;
 	default:
-		/* Not implemented yet: silently ignore */
+		/* Unknown command: silently ignore */
 		break;
 	}
 }
