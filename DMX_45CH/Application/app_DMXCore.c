@@ -6,6 +6,9 @@
  */
 #include "app_DMXCore.h"
 #include "app_CMD.h"
+#include "app_Sequence.h"
+#include "app_ACControl.h"
+#include "app_WS2811.h"
 #include "lib_Flash.h"
 #include "main.h"
 
@@ -45,16 +48,42 @@ void app_DMX_DMATransfer(void)
 
 void app_DMXCore_Init(void)
 {
-	Flash_Read_Data(EEPROM_SLOT_ADDR(EEPROM_SLOT_DMX_START), EEPROM_BlockTable, 1u);
-	if(EEPROM_BlockTable[EEPROM_SLOT_DMX_START] > (N_RawChannels - N_Channels))
+	bool l_Dirty = false;
+
+	Flash_Read_Data(EEPROM_START_ADDRESS, EEPROM_BlockTable, EEPROM_N_SLOTS);
+	if(EEPROM_BlockTable[EEPROM_SLOT_DMX_START] > (uint32_t)DMX_MAX_START_ADDRESS)
 	{
 		DMX_StartAddress = 1u;
 		EEPROM_BlockTable[EEPROM_SLOT_DMX_START] = DMX_StartAddress;
-		Flash_Write_Data(EEPROM_SLOT_ADDR(EEPROM_SLOT_DMX_START), &EEPROM_BlockTable[EEPROM_SLOT_DMX_START], 1u);
+		l_Dirty = true;
 	}
 	else
 	{
 		DMX_StartAddress = (uint16_t)EEPROM_BlockTable[EEPROM_SLOT_DMX_START];
+	}
+	/* Virgin (0xFFFFFFFF) or garbage slots take defaults and persist them */
+	if((EEPROM_BlockTable[EEPROM_SLOT_SEQ_LIMIT] == 0xFFFFFFFFu) ||
+		((uint8_t)EEPROM_BlockTable[EEPROM_SLOT_SEQ_LIMIT] > SEQUENCE_DMX_LIMIT_MAX))
+	{
+		EEPROM_BlockTable[EEPROM_SLOT_SEQ_LIMIT] = (uint32_t)SEQUENCE_DMX_MAX_VALUE;
+		l_Dirty = true;
+	}
+	if((EEPROM_BlockTable[EEPROM_SLOT_AC_LIMIT] == 0xFFFFFFFFu) ||
+		((uint8_t)EEPROM_BlockTable[EEPROM_SLOT_AC_LIMIT] > ACCONTROL_VALUE_LIMIT_MAX))
+	{
+		EEPROM_BlockTable[EEPROM_SLOT_AC_LIMIT] = (uint32_t)ACCONTROL_VALUE_MAX;
+		l_Dirty = true;
+	}
+	if((EEPROM_BlockTable[EEPROM_SLOT_LED_LIMIT] == 0xFFFFFFFFu) ||
+		((uint8_t)EEPROM_BlockTable[EEPROM_SLOT_LED_LIMIT] > LED_DMX_LIMIT_MAX))
+	{
+		EEPROM_BlockTable[EEPROM_SLOT_LED_LIMIT] = (uint32_t)LED_DMX_DEFAULT;
+		l_Dirty = true;
+	}
+	if(l_Dirty != false)
+	{
+		/* Single page erase, first boot only */
+		Flash_Write_Data(EEPROM_START_ADDRESS, EEPROM_BlockTable, EEPROM_N_SLOTS);
 	}
 }
 
