@@ -71,9 +71,11 @@ ajustar límites de potencia, consultar estado, etc.
 ## Estado
 
 - [ ] Definición del protocolo (este documento)
-- [ ] `CMD_GET_INFO`
+- [x] `CMD_GET_INFO`
 - [ ] `CMD_SET_DMX_ADDR` + EEPROM
 - [ ] `CMD_SET_POWER_LIMIT` + EEPROM
 - [ ] `CMD_GET_STATUS`
-- [ ] Respuestas por el transceiver
+- [x] `CMD_DISCOVER` (slotted backoff, 16 x 5 ms)
+- [ ] `CMD_SELECT_UID` / `CMD_DESELECT` (RAM selection, selective writes)
+- [x] Respuestas por el transceiver
 - [ ] Pruebas en hardware

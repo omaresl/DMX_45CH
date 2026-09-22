@@ -5,6 +5,7 @@
  *      Author: OmarSevilla
  */
 #include "app_DMXCore.h"
+#include "app_CMD.h"
 #include "lib_Flash.h"
 #include "main.h"
 
@@ -20,15 +21,23 @@ void app_DMX_DMATransfer(void)
 	if(DMX2DMATransferFlag != false)
 	{
 		DMX2DMATransferFlag = false;
-		for(l_DMX_ChannelIDX = 0; l_DMX_ChannelIDX < N_Channels;l_DMX_ChannelIDX++)
+		if(raw_DMX_Channels[0u] == CMD_START_CODE)
 		{
-			if((DMX_StartAddress + l_DMX_ChannelIDX) <= N_RawChannels)
+			/* Command frame: process instead of channel copy */
+			app_CMD_Exec();
+		}
+		else
+		{
+			for(l_DMX_ChannelIDX = 0; l_DMX_ChannelIDX < N_Channels;l_DMX_ChannelIDX++)
 			{
-				DMX_Channels[l_DMX_ChannelIDX] = raw_DMX_Channels[DMX_StartAddress + l_DMX_ChannelIDX + 1u];
-			}
-			else
-			{
-				DMX_Channels[l_DMX_ChannelIDX] = 0;
+				if((DMX_StartAddress + l_DMX_ChannelIDX) <= N_RawChannels)
+				{
+					DMX_Channels[l_DMX_ChannelIDX] = raw_DMX_Channels[DMX_StartAddress + l_DMX_ChannelIDX + 1u];
+				}
+				else
+				{
+					DMX_Channels[l_DMX_ChannelIDX] = 0;
+				}
 			}
 		}
 	}
