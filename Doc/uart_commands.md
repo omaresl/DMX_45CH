@@ -76,6 +76,23 @@ ajustar límites de potencia, consultar estado, etc.
 - [ ] `CMD_SET_POWER_LIMIT` + EEPROM
 - [ ] `CMD_GET_STATUS`
 - [x] `CMD_DISCOVER` (slotted backoff, 16 x 5 ms)
-- [ ] `CMD_SELECT_UID` / `CMD_DESELECT` (RAM selection, selective writes)
+- [x] `CMD_SELECT_UID` / `CMD_DESELECT` (RAM selection, selective writes)
 - [x] Respuestas por el transceiver
 - [ ] Pruebas en hardware
+
+## Selección (RAM, se pierde al reset)
+- Sin selección activa (boot): escrituras en broadcast.
+- `SELECT` lo ve todo el bus: activa selección global, solo el UID coincidente
+  queda seleccionado (único que responde `ACK` — los demás callan para no
+  colisionar). `DESELECT` limpia en todas.
+- `SET_*` solo ejecuta la seleccionada cuando hay selección activa.
+  Lecturas (`GET_INFO`/`STATUS`, `DISCOVER`) responden siempre; con N>1 el
+  flujo es DISCOVER → SELECT → configurar.
+
+## Visual ACK (1 s, solo LEDs)
+
+Cada comando válido destella los 45 canales LED (`app_CmdBlink`, no
+bloqueante, `DMX_Channels` intacto): `GET_INFO` cian, `DISCOVER` magenta,
+`SELECT` verde (solo la coincidente), `DESELECT` azul. Tramas inválidas no
+destellan. Simulación y timeline: `Doc/blink-simulation.py` (genera
+`Doc/blink-simulation.svg`; `--animate` para replay en terminal).

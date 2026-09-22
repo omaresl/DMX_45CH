@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "app_WS2811.h"
+#include "app_CmdBlink.h"
 #include "app_DMXCore.h"
 
 uint8_t WS2811_Data[L_DATA_SIZE];
@@ -25,6 +26,12 @@ void app_WS2811_ConvertDMXData(void)
 	uint16_t DMX_Data_IDX;
 
 	WS2811_Data_IDX = 0;
+
+	/* Visual command ACK overrides LED output while active */
+	if(app_CmdBlink_Apply() != false)
+	{
+		return;
+	}
 
 	for(DMX_Data_IDX = WS2811_DMX_OFFSET; DMX_Data_IDX < N_Channels; DMX_Data_IDX++)
 	{

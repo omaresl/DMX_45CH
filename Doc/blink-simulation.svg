@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="220">
+<style>text{font-family:monospace;font-size:11px}</style>
+<text x="60" y="24">DMX_45CH visual-ACK blink simulation (1 s, LEDs only)</text>
+<rect x="60.0" y="60" width="1.0" height="60" fill="#222"/>
+<rect x="60.0" y="60" width="133.3" height="60" fill="#00ffff"/>
+<text x="63.0" y="82" fill="#fff">RGB(0, 255, 255)</text>
+<rect x="193.3" y="60" width="66.7" height="60" fill="#222"/>
+<rect x="260.0" y="60" width="138.7" height="60" fill="#ff00ff"/>
+<text x="263.0" y="82" fill="#fff">RGB(255, 0, 255)</text>
+<rect x="398.7" y="60" width="61.3" height="60" fill="#222"/>
+<rect x="460.0" y="60" width="80.0" height="60" fill="#00ff00"/>
+<text x="463.0" y="82" fill="#fff">RGB(0, 255, 0)</text>
+<rect x="540.0" y="60" width="133.3" height="60" fill="#00ffff"/>
+<text x="543.0" y="82" fill="#fff">RGB(0, 255, 255)</text>
+<rect x="673.3" y="60" width="80.0" height="60" fill="#222"/>
+<rect x="753.3" y="60" width="133.3" height="60" fill="#0000ff"/>
+<text x="756.3" y="82" fill="#fff">RGB(0, 0, 255)</text>
+<rect x="886.7" y="60" width="53.3" height="60" fill="#222"/>
+<line x1="60.0" y1="120" x2="60.0" y2="150" stroke="red"/>
+<text x="62.0" y="162">GET_INFO</text>
+<line x1="260.0" y1="120" x2="260.0" y2="150" stroke="red"/>
+<text x="262.0" y="162">DISCOVER</text>
+<rect x="260.0" y="128" width="64.7" height="8" fill="orange"/>
+<line x1="460.0" y1="120" x2="460.0" y2="150" stroke="red"/>
+<text x="462.0" y="162">SELECT match</text>
+<line x1="540.0" y1="120" x2="540.0" y2="150" stroke="red"/>
+<text x="542.0" y="162">GET_INFO</text>
+<line x1="620.0" y1="120" x2="620.0" y2="150" stroke="red"/>
+<text x="622.0" y="162">SELECT mismatch</text>
+<line x1="753.3" y1="120" x2="753.3" y2="150" stroke="red"/>
+<text x="755.3" y="162">DESELECT</text>
+<text x="60" y="182">Longest main-loop block: 75 ms slot wait &lt; IWDG 410 ms. Orange = DISCOVER slot wait. Mismatch: no blink.</text>
+</svg>
