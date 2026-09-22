@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DMX_45CH command simulator (mirrors app_CMD.c)</title>
+<style>
+  body { font-family: monospace; background: #111; color: #ddd; max-width: 1000px; margin: 1em auto; padding: 0 1em; }
+  h2, h3 { color: #8cf; }
+  section { border: 1px solid #444; padding: 8px 12px; margin: 8px 0; }
+  #strip { display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap; }
+  .px { width: 40px; height: 40px; background: #222; border: 1px solid #444; border-radius: 4px; }
+  #lamps { display: flex; gap: 6px; margin: 8px 0; }
+  .lamp { width: 40px; height: 40px; border-radius: 50%; background: #222; border: 1px solid #444; text-align: center; line-height: 40px; font-size: 11px; }
+  button { font-family: monospace; margin: 2px; padding: 6px 10px; cursor: pointer; }
+  input[type=number] { width: 64px; font-family: monospace; }
+  input[type=text] { font-family: monospace; }
+  table { border-collapse: collapse; font-size: 12px; }
+  td, th { border: 1px solid #444; padding: 2px 8px; text-align: left; }
+  .hex { color: #fd6; word-break: break-all; }
+  #log { background: #000; border: 1px solid #444; height: 240px; overflow-y: auto; padding: 8px; }
+  .dim { color: #888; font-size: 12px; }
+  .ctlgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0; }
+  .ctlbox { border: 1px solid #444; border-radius: 4px; padding: 4px 6px; font-size: 12px; }
+  .ctlbox .val { color: #fd6; }
+  .acrow { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .acbox { border: 1px solid #444; border-radius: 4px; padding: 4px 6px; font-size: 12px; }
+  .acbox input[type=range] { width: 90px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<h2>DMX_45CH command simulator</h2>
+<p class="dim">Faithful model of <code>app_CMD.c</code> + <code>app_DMXCore.c</code> dispatch,
+<code>app_CmdBlink</code> strobe, EEPROM slots and output clamps. Timings shortened
+for demo (DISCOVER slot ×5&nbsp;ms kept real).</p>
+
+<section>
+<h3>1. Bus &amp; DMX input</h3>
+<label><input type="checkbox" id="dmxPresent" checked> DMX present</label>
+<span class="dim">(uncheck = 763 ms loss → real sequence engine: AC cascade + rainbow)</span>
+<div id="acCtl"></div>
+<div id="ledCtl"></div>
+<div><button id="allOff">all off</button> <button id="allFull">all full</button></div>
+</section>
+
+<section>
+<h3>2. Commands (vendor start code 0xEE)</h3>
+<button data-cmd="GET_INFO">GET_INFO (cyan)</button>
+<button data-cmd="GET_STATUS">GET_STATUS (white)</button>
+<button data-cmd="DISCOVER">DISCOVER (magenta)</button>
+seed: <input type="number" id="seed" value="7" min="0" max="255"><br>
+<button data-cmd="SELECT">SELECT_UID (green, match only)</button>
+UID: <input type="text" id="uidIn" size="26" value="">
+<label><input type="checkbox" id="mismatch"> mismatch</label>
+<button data-cmd="DESELECT">DESELECT (blue, back to broadcast)</button><br>
+<button data-cmd="SET_ADDR">SET_DMX_ADDR (yellow/red)</button>
+addr: <input type="number" id="addrIn" value="25" min="0" max="600"><br>
+<button data-cmd="SET_POWER">SET_POWER_LIMIT (orange/red)</button>
+seq: <input type="number" id="seqIn" value="80" min="0" max="255">
+ac: <input type="number" id="acIn" value="150" min="0" max="255">
+led: <input type="number" id="ledIn" value="200" min="0" max="255"><br>
+<label><input type="checkbox" id="corrupt"> corrupt checksum (must be silently ignored)</label>
+</section>
+
+<section>
+<h3>3. TX frame (DMX chain)</h3>
+<div class="hex" id="tx">—</div>
+<h3>4. RX response</h3>
+<div class="hex" id="rx">—</div>
+<div id="decoded"></div>
+</section>
+
+<section>
+<h3>5. Internal values</h3>
+<table id="internals"></table>
+<h3>6. Outputs</h3>
+<div>LEDs ch9-53 (15 RGB, LED-limit clamped):</div>
+<div id="strip"></div>
+<div>AC lamps ch0-7 (AC-limit clamped):</div>
+<div id="lamps"></div>
+</section>
+
+<section>
+<h3>7. Log</h3>
+<div id="log"></div>
+</section>
+
+<script>
+"use strict";
+/* ---- firmware-mirrored state ---- */
+const N_CH = 54, LED_OFF = 9;
+const UID = [0x3A,0x71,0xC4,0x08,0x55,0x1F,0x9B,0xD2,0x40,0x77,0xAE,0x03];
+const FW = [0, 3], MODEL = 0x0045;
+const DEF = { addr: 1, seq: 100, ac: 200, led: 200 };
+const LIM_MAX = 200, MAX_ADDR = 459;
+const FFFFFFFF = 0xFFFFFFFF;
+let eeprom = [FFFFFFFF, FFFFFFFF, FFFFFFFF, FFFFFFFF]; // virgin flash
+let S; // runtime
+function boot() {
+  // app_DMXCore_Init: whole-map normalize, single persist if anything changed
+  if (eeprom[0] > MAX_ADDR) { eeprom[0] = 1; }
+  const defs = [1, DEF.seq, DEF.ac, DEF.led];
+  for (let i = 1; i < 4; i++) {
+    if (eeprom[i] === FFFFFFFF || (eeprom[i] & 0xFF) > LIM_MAX) eeprom[i] = defs[i];
+  }
+  const slot = i => eeprom[i] & 0xFF;
+  S = { addr: eeprom[0],
+        seq: slot(1), ac: slot(2), led: slot(3),
+        selected: false, selActive: false, seqMode: false,
+        color: null, blinkStart: 0, blinkEnd: 0 };
+}
+boot();
+const hex = b => ("0" + b.toString(16)).slice(-2).toUpperCase();
+const hexs = a => [...a].map(hex).join(" ");
+const $ = id => document.getElementById(id);
+const stripEl = $("strip"), lampsEl = $("lamps"), logEl = $("log");
+const px = [], lampEls = [];
+for (let i = 0; i < 15; i++) { const d = document.createElement("div"); d.className = "px"; stripEl.appendChild(d); px.push(d); }
+for (let i = 0; i < 8; i++) { const d = document.createElement("div"); d.className = "lamp"; d.textContent = i + 1; lampsEl.appendChild(d); lampEls.push(d); }
+$("uidIn").value = UID.map(hex).join("");
+function say(m) { const d = document.createElement("div"); d.textContent = new Date().toISOString().slice(14, 23) + "  " + m; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; }
+function checksum(cmd, len, payload) { let s = cmd + len; for (const b of payload) s = (s + b) & 0xFF; return s; }
+function writeAllowed() { return !S.selActive || S.selected; } // no selection = broadcast
+function ack(ok) { return [0xA5, ok ? 0x00 : 0x01]; }
+
+/* ---- manual DMX channels (precise control) ---- */
+let manAC = new Array(8).fill(200);
+let manRGB = Array.from({ length: 15 }, () => [60, 60, 60]);
+let dmxPresent = true;
+(function buildControls() {
+  const ac = $("acCtl"), led = $("ledCtl");
+  ac.innerHTML = "<div class='dim'>AC ch0-7 (applied value in yellow):</div><div class='acrow' id='acRow'></div>";
+  led.innerHTML = "<div class='dim'>LED pixels = DMX ch (applied R/G/B in yellow):</div><div class='ctlgrid' id='pxGrid'></div>";
+  const acRow = $("acRow"), grid = $("pxGrid");
+  manAC.forEach((v, i) => {
+    acRow.innerHTML += `<div class='acbox'>CH${i}<br><input type="range" min="0" max="255" value="${v}" data-ac="${i}"> <span class='val' id='acVal${i}'>${v}</span></div>`;
+  });
+  manRGB.forEach((c, i) => {
+    const h = "#" + c.map(v => ("0" + v.toString(16)).slice(-2)).join("");
+    const ch = 9 + i * 3;
+    grid.innerHTML += `<div class='ctlbox'>P${i} (ch${ch}-${ch + 2})<br><input type="color" value="${h}" data-px="${i}"> <span class='val' id='pxVal${i}'></span></div>`;
+  });
+  ac.addEventListener("input", e => { const i = e.target.dataset.ac; if (i !== undefined) manAC[+i] = +e.target.value; });
+  led.addEventListener("input", e => {
+    const i = e.target.dataset.px; if (i === undefined) return;
+    const h = e.target.value; manRGB[+i] = [1, 3, 5].map(k => parseInt(h.substr(k, 2), 16));
+  });
+  $("allOff").addEventListener("click", () => location.reload());
+  $("allFull").addEventListener("click", () => {
+    manAC.fill(255); manRGB = Array.from({ length: 15 }, () => [255, 255, 255]);
+    buildControls();
+  });
+})();
+
+/* ---- real sequence engine (cycle-exact port of app_Sequence.c) ---- */
+const SEQ_STAGGER = 8, SEQ_FADE_TICK = 2, SEQ_HOLD = 30, PWM_MAX = 200;
+function buildACSequence() {
+  const T = [];
+  const wait = t => { T.push({ c: "SET_TIME", p: t }); T.push({ c: "TIME_WAIT" }); };
+  const rise = ch => { wait(SEQ_STAGGER); T.push({ c: "INIT_LOOP", p: "POWER" }); T.push({ c: "SELECT_CH", p: ch }); T.push({ c: "FADEUP", p: 1 }); wait(SEQ_FADE_TICK); T.push({ c: "CHECK_LOOP" }); };
+  const fall = ch => { wait(SEQ_STAGGER); T.push({ c: "INIT_LOOP", p: "POWER" }); T.push({ c: "SELECT_CH", p: ch }); T.push({ c: "FADEDOWN", p: 1 }); wait(SEQ_FADE_TICK); T.push({ c: "CHECK_LOOP" }); };
+  for (let ch = 0; ch < 8; ch++) rise(ch);
+  wait(SEQ_HOLD);
+  for (let ch = 7; ch >= 0; ch--) fall(ch);
+  wait(SEQ_HOLD);
+  T.push({ c: "JUMP", p: 0 });
+  return T;
+}
+const AC_SEQ = buildACSequence();
+const seqCh = new Array(54).fill(0);
+const seqSt = { step: 0, chIdx: 0, time: 0, loop: 0, firstLoop: 0, hue: 0, frame: 0 };
+function wheel(h) { // exact port of Sequence_RainbowWheelRGB
+  const seg = Math.floor(h / 43), pos = h % 43, val = Math.floor(pos * 255 / 42);
+  switch (seg) {
+    case 0: return [255, val, 0];
+    case 1: return [255 - val, 255, 0];
+    case 2: return [0, 255, val];
+    case 3: return [0, 255 - val, 255];
+    case 4: return [val, 0, 255];
+    default: return [255, 0, 255 - val];
+  }
+}
+function seqExecOne() { // one app_SequenceCommandExec call = one consumed tick
+  let run = true, guard = 0;
+  while (run && guard++ < 1000) {
+    const s = AC_SEQ[seqSt.step];
+    switch (s.c) {
+      case "SELECT_CH": seqSt.chIdx = s.p; seqSt.step++; break;
+      case "SET_TIME": seqSt.time = s.p; seqSt.step++; break;
+      case "TIME_WAIT":
+        if (seqSt.time > 0) { seqSt.time--; run = false; }
+        else seqSt.step++;
+        break;
+      case "JUMP": seqSt.step = s.p; break;
+      case "FADEUP":
+        if (seqCh[seqSt.chIdx] < PWM_MAX) seqCh[seqSt.chIdx] = Math.min(PWM_MAX, seqCh[seqSt.chIdx] + s.p);
+        seqSt.step++; break;
+      case "FADEDOWN":
+        if (seqCh[seqSt.chIdx] > 0) seqCh[seqSt.chIdx] = Math.max(0, seqCh[seqSt.chIdx] - s.p);
+        seqSt.step++; break;
+      case "INIT_LOOP": // static table holds 100 as "power loop" marker
+        seqSt.loop = (s.p === "POWER") ? S.seq : s.p;
+        seqSt.step++; seqSt.firstLoop = seqSt.step; break;
+      case "CHECK_LOOP":
+        if (seqSt.loop > 0) { seqSt.loop--; seqSt.step = seqSt.firstLoop; }
+        else seqSt.step++;
+        break;
+      default: run = false; seqSt.step = 0; break;
+    }
+  }
+}
+function seqTick() { // one app_Sequence_Main tick (1 ms): exec + rainbow + clamp
+  seqExecOne();
+  if (++seqSt.frame >= 8) { seqSt.frame = 0; seqSt.hue = (seqSt.hue + 1) & 0xFF; }
+  for (let p = 0; p < 15; p++) {
+    const [r, g, b] = wheel((seqSt.hue + p * 17) & 0xFF);
+    seqCh[9 + p * 3] = Math.round(r * S.led / 255);
+    seqCh[9 + p * 3 + 1] = Math.round(g * S.led / 255);
+    seqCh[9 + p * 3 + 2] = Math.round(b * S.led / 255);
+  }
+  for (let i = 0; i < 9; i++) if (seqCh[i] > S.seq) seqCh[i] = S.seq; // LimitChannels ch0-8
+}
+/* ---- outputs ---- */
+function render(now) {
+  const strobing = S.color && now < S.blinkEnd && (Math.floor((now - S.blinkStart) / 100) % 2 === 0);
+  let led;
+  if (strobing) led = Array(15).fill(S.color);
+  else if (!dmxPresent) {
+    led = [];
+    for (let p = 0; p < 15; p++) {
+      const c = [];
+      for (let k = 0; k < 3; k++) c.push(Math.min(seqCh[9 + p * 3 + k], S.led)); // ConvertDMXData clamp
+      led.push(c);
+    }
+  }
+  else led = manRGB.map(c => c.map(v => Math.min(v, S.led)));
+  led.forEach((c, i) => px[i].style.background = `rgb(${c[0]},${c[1]},${c[2]})`);
+  for (let i = 0; i < 8; i++) {
+    const v = dmxPresent ? manAC[i] : seqCh[i];
+    const applied = Math.min(v, S.ac); // ACControl clamp
+    lampEls[i].style.background = applied > 0 ? "#fb0" : "#222";
+    lampEls[i].title = "ch" + i + "=" + v;
+    const el = $("acVal" + i);
+    if (el) el.textContent = applied;
+  }
+  if (!strobing) {
+    for (let p = 0; p < 15; p++) {
+      const el = $("pxVal" + p);
+      if (el) el.textContent = led[p].join(",");
+    }
+  }
+  const rows = [["DMX_StartAddress", S.addr], ["Sequence_DMX_MaxValue", S.seq],
+    ["ACControl_ValueMax", S.ac], ["Led_DMX_MaxValue", S.led],
+    ["selected", S.selected], ["selectionActive", S.selActive],
+    ["sequenceMode", S.seqMode], ["writeAllowed", writeAllowed()],
+    ["EEPROM", eeprom.map(v => v === FFFFFFFF ? "FFFFFFFF" : ("0000000" + v.toString(16)).slice(-8).toUpperCase()).join(" ")]];
+  $("internals").innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("");
+}
+let lastTick = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  if (!dmxPresent) { // 1 ms sequence ticks in real time
+    let n = Math.min(500, Math.round(now - lastTick));
+    while (n-- > 0) seqTick();
+  }
+  lastTick = now;
+  render(now);
+}, 100);
+$("dmxPresent").addEventListener("change", e => {
+  dmxPresent = e.target.checked; S.seqMode = !dmxPresent;
+  if (!dmxPresent) seqCh.fill(0); // PeriodElapsedCallback clears buffers
+  say(dmxPresent ? "DMX present -> sequence off" : "DMX lost (763 ms) -> sequence mode");
+});
+
+/* ---- command path (mirrors app_CMD_Exec) ---- */
+function trigger(name, rgb) {
+  S.color = rgb; S.blinkStart = Date.now(); S.blinkEnd = S.blinkStart + 1000;
+}
+function send(cmd, len, payload) {
+  let chk = checksum(cmd, len, payload);
+  const tx = [0xEE, cmd, len, ...payload, $("corrupt").checked ? (chk ^ 0xFF) & 0xFF : chk];
+  $("tx").textContent = "break | " + hexs(tx);
+  $("rx").textContent = "—"; $("decoded").innerHTML = "";
+  say("RX frame, start code 0xEE -> app_CMD_Exec");
+  setTimeout(() => exec(cmd, len, payload, tx[tx.length - 1]), 30);
+}
+function okChecksum(cmd, len, payload, wire) { return checksum(cmd, len, payload) === wire; }
+function exec(cmd, len, payload, wire) {
+  if (!okChecksum(cmd, len, payload, wire)) { say("bad checksum -> silently ignored (no TX)"); return; }
+  const BLINK = { 1: [[0,255,255],"cyan"], 4: [[255,255,255],"white"] };
+  if (cmd === 1 && len === 0) { // GET_INFO
+    trigger("GET_INFO", BLINK[1][0]);
+    const r = [...UID, ...FW, (MODEL >> 8) & 0xFF, MODEL & 0xFF,
+               (S.addr >> 8) & 0xFF, S.addr & 0xFF];
+    respond(r, "GET_INFO_RESP: UID + FW 0.3 + model 0x0045 + addr " + S.addr);
+  } else if (cmd === 5 && len === 1) { // DISCOVER
+    const seed = payload[0];
+    let h = 0; for (const b of UID) h ^= b;
+    h ^= (Date.now() & 0xFF) ^ seed; // TIM2 stand-in
+    const slot = h % 16;
+    trigger("DISCOVER", [255,0,255]);
+    say("DISCOVER seed " + seed + " -> slot " + slot + " (wait " + (slot * 5) + " ms)");
+    setTimeout(() => {
+      const st = (S.seqMode ? 1 : 0) | (S.selected ? 2 : 0);
+      const r = [...UID, ...FW, (MODEL >> 8) & 0xFF, MODEL & 0xFF,
+                 (S.addr >> 8) & 0xFF, S.addr & 0xFF, S.seq, S.ac, st, S.led];
+      respond(r, "slot " + slot + " TX DISCOVER_RESP (22 B: info + limits/state)");
+    }, slot * 5);
+  } else if (cmd === 6 && len === 12) { // SELECT
+    const match = payload.every((b, i) => b === UID[i]);
+    S.selActive = true; S.selected = match;
+    if (match) { trigger("SELECT", [0,255,0]); respond(ack(true), "ACK, selected"); }
+    else say("SELECT mismatch -> cleared silently, no blink, no TX");
+  } else if (cmd === 7 && len === 0) { // DESELECT
+    trigger("DESELECT", [0,0,255]);
+    S.selActive = false; S.selected = false;
+    say("DESELECT -> back to broadcast, no response");
+  } else if (cmd === 2 && len === 2) { // SET_ADDR
+    if (!writeAllowed()) { say("gated (selection active elsewhere) -> silent"); return; }
+    const a = (payload[0] << 8) | payload[1];
+    if (a >= 1 && a <= MAX_ADDR) {
+      eeprom[0] = a; S.addr = a; // page erase abstracted
+      trigger("SET_ADDR", [255,255,0]); respond(ack(true), "ACK, addr=" + a + " persisted");
+    } else { trigger("SET_ADDR", [255,0,0]); respond(ack(false), "NACK invalid range"); }
+  } else if (cmd === 3 && len === 3) { // SET_POWER
+    if (!writeAllowed()) { say("gated (selection active elsewhere) -> silent"); return; }
+    const [sq, ac, ld] = payload;
+    if (sq <= 200 && ac <= 200 && ld <= 200) {
+      eeprom[1] = sq; eeprom[2] = ac; eeprom[3] = ld;
+      S.seq = sq; S.ac = ac; S.led = ld;
+      trigger("SET_POWER", [255,165,0]); respond(ack(true), `ACK, seq=${sq} ac=${ac} led=${ld} persisted`);
+    } else { trigger("SET_POWER", [255,0,0]); respond(ack(false), "NACK invalid range"); }
+  } else if (cmd === 4 && len === 0) { // GET_STATUS
+    trigger("GET_STATUS", [255,255,255]);
+    const st = (S.seqMode ? 1 : 0) | (S.selected ? 2 : 0);
+    const r = [(S.addr >> 8) & 0xFF, S.addr & 0xFF, S.seq, S.ac, st, S.led];
+    respond(r, `STATUS: addr=${S.addr} seq=${S.seq} ac=${S.ac} state=0x${hex(st)} led=${S.led}`);
+  } else say("unknown CMD or bad LEN -> silently ignored (no TX)");
+}
+function parseResp(bytes) {
+  // Field parser by response length (mirrors future bridge parsing)
+  const H = a => [...a].map(hex).join("");
+  const u16 = (h, l) => (h << 8) | l;
+  const stateBits = st => `0x${hex(st)} (seq=${(st & 1) ? 1 : 0}, sel=${(st & 2) ? 1 : 0})`;
+  if (bytes.length === 2) return [["ACK", bytes[1] === 0 ? "OK" : "ERR " + bytes[1]]];
+  if (bytes.length === 6) return [["addr", u16(bytes[0], bytes[1])],
+    ["seq_limit", bytes[2]], ["ac_limit", bytes[3]],
+    ["state", stateBits(bytes[4])], ["led_limit", bytes[5]]];
+  if (bytes.length === 18 || bytes.length === 22) {
+    const rows = [["UID", H(bytes.slice(0, 12))],
+      ["FW", bytes[12] + "." + bytes[13]],
+      ["model", "0x" + H(bytes.slice(14, 16))],
+      ["addr", u16(bytes[16], bytes[17])]];
+    if (bytes.length === 22) rows.push(["seq_limit", bytes[18]], ["ac_limit", bytes[19]],
+      ["state", stateBits(bytes[20])], ["led_limit", bytes[21]]);
+    return rows;
+  }
+  return [];
+}
+function respond(bytes, note) {
+  $("rx").textContent = hexs(bytes);
+  const rows = parseResp(bytes);
+  $("decoded").innerHTML = note + (rows.length
+    ? "<table>" + rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("") + "</table>"
+    : "");
+  say("TX response (" + bytes.length + " B): " + note);
+}
+const parseUID = s => (s.replace(/[^0-9a-fA-F]/g, "").match(/../g) || []).map(h => parseInt(h, 16));
+document.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+  const c = b.dataset.cmd;
+  if (c === "GET_INFO") send(1, 0, []);
+  else if (c === "GET_STATUS") send(4, 0, []);
+  else if (c === "DISCOVER") send(5, 1, [$("seed").valueAsNumber & 0xFF]);
+  else if (c === "SELECT") {
+    let u = parseUID($("uidIn").value);
+    if ($("mismatch").checked) u = [...u.slice(0, 11), (u[11] + 1) & 0xFF];
+    send(6, 12, u);
+  }
+  else if (c === "DESELECT") send(7, 0, []);
+  else if (c === "SET_ADDR") { const a = $("addrIn").valueAsNumber; send(2, 2, [(a >> 8) & 0xFF, a & 0xFF]); }
+  else if (c === "SET_POWER") send(3, 3, [$("seqIn").valueAsNumber & 0xFF, $("acIn").valueAsNumber & 0xFF, $("ledIn").valueAsNumber & 0xFF]);
+}));
+say("boot: EEPROM virgin -> addr=1 persisted, limits 100/200/200. UID " + hexs(UID));
+render(Date.now());
+</script>
+</body>
+</html>
