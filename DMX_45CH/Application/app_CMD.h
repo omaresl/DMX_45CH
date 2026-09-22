@@ -23,6 +23,7 @@
 
 #define CMD_ACK_BYTE			(0xA5u)
 #define CMD_ACK_OK				(0x00u)
+#define CMD_NACK_INVALID		(0x01u)
 
 /* Firmware identity reported by CMD_GET_INFO */
 #define FW_VERSION_MAJOR		(0u)

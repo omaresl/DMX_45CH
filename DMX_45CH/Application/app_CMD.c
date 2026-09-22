@@ -12,6 +12,10 @@
 #include "app_CMD.h"
 #include "app_CmdBlink.h"
 #include "app_DMXCore.h"
+#include "app_Sequence.h"
+#include "app_ACControl.h"
+#include "app_WS2811.h"
+#include "lib_Flash.h"
 
 extern UART_HandleTypeDef huart1;
 extern TIM_HandleTypeDef htim2;
@@ -106,6 +110,71 @@ static void app_CMD_Deselect(void)
 	rb_CMD_Selected = false;
 }
 
+/* EEPROM slots: [1] sequence limit, [2] AC limit (u8 in u32, [3] reserved) */
+static void app_CMD_SetPowerLimit(uint8_t l_SeqLimit, uint8_t l_AcLimit, uint8_t l_LedLimit)
+{
+	uint32_t l_Block[EEPROM_N_SLOTS];
+	uint8_t l_Ack[CMD_ACK_LENGTH];
+
+	/* Not selected while a selection is active: stay silent (no NACK storm) */
+	if(app_CMD_WriteAllowed() == false)
+	{
+		return;
+	}
+	l_Ack[0u] = CMD_ACK_BYTE;
+	if((l_SeqLimit > SEQUENCE_DMX_LIMIT_MAX) || (l_AcLimit > ACCONTROL_VALUE_LIMIT_MAX) ||
+		(l_LedLimit > LED_DMX_LIMIT_MAX))
+	{
+		l_Ack[1u] = CMD_NACK_INVALID;
+		app_CmdBlink_Trigger(255u, 0u, 0u); /* red */
+		app_CMD_Respond(l_Ack, (uint16_t)CMD_ACK_LENGTH);
+		return;
+	}
+	/* Read-modify-write: Flash_Write_Data erases the whole page */
+	Flash_Read_Data(EEPROM_START_ADDRESS, l_Block, EEPROM_N_SLOTS);
+	l_Block[EEPROM_SLOT_SEQ_LIMIT] = (uint32_t)l_SeqLimit;
+	l_Block[EEPROM_SLOT_AC_LIMIT] = (uint32_t)l_AcLimit;
+	l_Block[EEPROM_SLOT_LED_LIMIT] = (uint32_t)l_LedLimit;
+	if(Flash_Write_Data(EEPROM_START_ADDRESS, l_Block, EEPROM_N_SLOTS) != 0u)
+	{
+		l_Ack[1u] = CMD_NACK_INVALID;
+		app_CmdBlink_Trigger(255u, 0u, 0u); /* red */
+	}
+	else
+	{
+		Sequence_DMX_MaxValue = l_SeqLimit;
+		ACControl_ValueMax = l_AcLimit;
+		Led_DMX_MaxValue = l_LedLimit;
+		l_Ack[1u] = CMD_ACK_OK;
+		app_CmdBlink_Trigger(255u, 165u, 0u); /* orange */
+	}
+	app_CMD_Respond(l_Ack, (uint16_t)CMD_ACK_LENGTH);
+}
+
+static void app_CMD_SetDmxAddr(void)
+{	uint16_t l_Address;
+	uint8_t l_Ack[CMD_ACK_LENGTH];
+
+	/* Not selected while a selection is active: stay silent (no NACK storm) */
+	if(app_CMD_WriteAllowed() == false)
+	{
+		return;
+	}
+	l_Address = (uint16_t)(((uint16_t)raw_DMX_Channels[3u] << 8u) | raw_DMX_Channels[4u]);
+	l_Ack[0u] = CMD_ACK_BYTE;
+	if(app_DMXCore_SetStartAddress(l_Address) != false)
+	{
+		l_Ack[1u] = CMD_ACK_OK;
+		app_CmdBlink_Trigger(255u, 255u, 0u); /* yellow */
+	}
+	else
+	{
+		l_Ack[1u] = CMD_NACK_INVALID;
+		app_CmdBlink_Trigger(255u, 0u, 0u); /* red */
+	}
+	app_CMD_Respond(l_Ack, (uint16_t)CMD_ACK_LENGTH);
+}
+
 bool app_CMD_WriteAllowed(void)
 {
 	return ((rb_CMD_SelectionActive == false) || (rb_CMD_Selected != false));
@@ -169,12 +238,16 @@ void app_CMD_Exec(void)
 		}
 		break;
 	case CMD_SET_DMX_ADDR:
-	case CMD_SET_POWER_LIMIT:
-		if(app_CMD_WriteAllowed() == false)
+		if(l_LEN == 2u)
 		{
-			break;
+			app_CMD_SetDmxAddr();
 		}
-		/* Not implemented yet: silently ignore */
+		break;
+	case CMD_SET_POWER_LIMIT:
+		if(l_LEN == 3u)
+		{
+			app_CMD_SetPowerLimit(raw_DMX_Channels[3u], raw_DMX_Channels[4u], raw_DMX_Channels[5u]);
+		}
 		break;
 	case CMD_GET_STATUS:
 	default:

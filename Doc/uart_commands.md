@@ -33,7 +33,7 @@ ajustar límites de potencia, consultar estado, etc.
 |---|---|---|---|
 | `CMD_GET_INFO` | `0x01` | — | ID único 96 bits (`0x1FFFF7AC`), versión FW, modelo, start address |
 | `CMD_SET_DMX_ADDR` | `0x02` | addr u16 (big-endian) | ACK/NACK |
-| `CMD_SET_POWER_LIMIT` | `0x03` | limite secuencias u8, limite AC u8 | ACK/NACK |
+| `CMD_SET_POWER_LIMIT` | `0x03` | limite secuencias u8, limite AC u8, limite LED u8 | ACK/NACK |
 | `CMD_GET_STATUS` | `0x04` | — | limites activos, addr, estado |
 
 ### Respuestas
@@ -52,7 +52,7 @@ ajustar límites de potencia, consultar estado, etc.
 [0] = start address
 [1] = limite secuencias (Sequence_DMX_MaxValue)
 [2] = limite AC (ACControl_ValueMax)
-[3] = reservado / checksum
+[3] = limite LED (Led_DMX_MaxValue)
 ```
 
 - Backward-compat: si un slot leído es `0xFFFFFFFF` → usar default.
@@ -72,8 +72,8 @@ ajustar límites de potencia, consultar estado, etc.
 
 - [ ] Definición del protocolo (este documento)
 - [x] `CMD_GET_INFO`
-- [ ] `CMD_SET_DMX_ADDR` + EEPROM
-- [ ] `CMD_SET_POWER_LIMIT` + EEPROM
+- [x] `CMD_SET_DMX_ADDR` + EEPROM
+- [x] `CMD_SET_POWER_LIMIT` + EEPROM
 - [ ] `CMD_GET_STATUS`
 - [x] `CMD_DISCOVER` (slotted backoff, 16 x 5 ms)
 - [x] `CMD_SELECT_UID` / `CMD_DESELECT` (RAM selection, selective writes)
