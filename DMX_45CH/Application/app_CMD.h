@@ -9,6 +9,7 @@
 #define APP_CMD_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define CMD_START_CODE			(0xEEu)
 
@@ -17,6 +18,8 @@
 #define CMD_SET_POWER_LIMIT		(0x03u)
 #define CMD_GET_STATUS			(0x04u)
 #define CMD_DISCOVER			(0x05u)
+#define CMD_SELECT_UID			(0x06u)
+#define CMD_DESELECT			(0x07u)
 
 #define CMD_ACK_BYTE			(0xA5u)
 #define CMD_ACK_OK				(0x00u)
@@ -43,5 +46,7 @@
 
 extern void app_CMD_Exec(void);
 extern void app_CMD_Respond(const uint8_t* l_Data, uint16_t l_Length);
+/* Write gate: true when no selection active (broadcast) or this unit selected */
+extern bool app_CMD_WriteAllowed(void);
 
 #endif /* APP_CMD_H_ */

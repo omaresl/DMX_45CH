@@ -10,6 +10,7 @@
 #include <string.h>
 #include "main.h"
 #include "app_CMD.h"
+#include "app_CmdBlink.h"
 #include "app_DMXCore.h"
 
 extern UART_HandleTypeDef huart1;
@@ -70,6 +71,46 @@ static void app_CMD_Discover(uint8_t l_Seed)
 	app_CMD_GetInfo();
 }
 
+/* RAM selection: no selection active at boot (= broadcast writes).
+ * Any SELECT activates selection bus-wide (all receivers see it);
+ * only the UID match stays selected. DESELECT clears everywhere. */
+static bool rb_CMD_Selected = false;
+static bool rb_CMD_SelectionActive = false;
+
+static void app_CMD_Select(void)
+{
+	uint8_t l_IDX;
+	bool l_Match = true;
+
+	for(l_IDX = 0u; l_IDX < UID_LENGTH; l_IDX++)
+	{
+		if(raw_DMX_Channels[3u + l_IDX] != ((const uint8_t*)UID_BASE)[l_IDX])
+		{
+			l_Match = false;
+			break;
+		}
+	}
+	rb_CMD_SelectionActive = true;
+	rb_CMD_Selected = l_Match;
+	if(l_Match != false)
+	{
+		/* Only the match responds (avoids N-1 NACK collision) */
+		uint8_t l_Ack[CMD_ACK_LENGTH] = {CMD_ACK_BYTE, CMD_ACK_OK};
+		app_CMD_Respond(l_Ack, (uint16_t)CMD_ACK_LENGTH);
+	}
+}
+
+static void app_CMD_Deselect(void)
+{
+	rb_CMD_SelectionActive = false;
+	rb_CMD_Selected = false;
+}
+
+bool app_CMD_WriteAllowed(void)
+{
+	return ((rb_CMD_SelectionActive == false) || (rb_CMD_Selected != false));
+}
+
 void app_CMD_Exec(void)
 {
 	uint8_t l_CMD;
@@ -100,16 +141,41 @@ void app_CMD_Exec(void)
 	switch(l_CMD)
 	{
 	case CMD_GET_INFO:
+		app_CmdBlink_Trigger(0u, 255u, 255u); /* cyan */
 		app_CMD_GetInfo();
 		break;
 	case CMD_DISCOVER:
 		if(l_LEN == 1u)
 		{
+			app_CmdBlink_Trigger(255u, 0u, 255u); /* magenta */
 			app_CMD_Discover(raw_DMX_Channels[3u]);
+		}
+		break;
+	case CMD_SELECT_UID:
+		if(l_LEN == UID_LENGTH)
+		{
+			app_CMD_Select();
+			if(rb_CMD_Selected != false)
+			{
+				app_CmdBlink_Trigger(0u, 255u, 0u); /* green, match only */
+			}
+		}
+		break;
+	case CMD_DESELECT:
+		if(l_LEN == 0u)
+		{
+			app_CmdBlink_Trigger(0u, 0u, 255u); /* blue */
+			app_CMD_Deselect();
 		}
 		break;
 	case CMD_SET_DMX_ADDR:
 	case CMD_SET_POWER_LIMIT:
+		if(app_CMD_WriteAllowed() == false)
+		{
+			break;
+		}
+		/* Not implemented yet: silently ignore */
+		break;
 	case CMD_GET_STATUS:
 	default:
 		/* Not implemented yet: silently ignore */
