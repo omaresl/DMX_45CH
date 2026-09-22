@@ -10,8 +10,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Max value any sequence may write to DMX_Channels */
+/* Default when EEPROM slot holds 0xFFFFFFFF or garbage (>200) */
 #define SEQUENCE_DMX_MAX_VALUE		(100u)
+#define SEQUENCE_DMX_LIMIT_MAX		(200u)
 
 typedef struct
 {
@@ -45,6 +46,9 @@ typedef struct
 
 extern bool rb_EnableSequenceFlag;
 extern bool rb_SequenceTick;
+/* Runtime power limit (EEPROM slot 1), applied to cascade, rainbow, clamp */
+extern uint8_t Sequence_DMX_MaxValue;
+extern void app_Sequence_Init(void);
 extern void app_Sequence_Main(void);
 extern void app_SequenceCommandExec(T_Sequence* l_Sequence, T_SequenceState* l_State);
 

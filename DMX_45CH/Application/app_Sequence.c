@@ -11,10 +11,27 @@
 #include "app_WS2811.h"
 #include "app_Sequence.h"
 #include "app_DMXCore.h"
+#include "lib_Flash.h"
 
 bool rb_EnableSequenceFlag = false;
 bool rb_SequenceTick = false;
 uint32_t rul_SeqIndex;
+uint8_t Sequence_DMX_MaxValue = SEQUENCE_DMX_MAX_VALUE;
+
+void app_Sequence_Init(void)
+{
+	uint32_t l_Slot;
+
+	Flash_Read_Data(EEPROM_SLOT_ADDR(EEPROM_SLOT_SEQ_LIMIT), &l_Slot, 1u);
+	if((l_Slot == 0xFFFFFFFFu) || ((uint8_t)l_Slot > SEQUENCE_DMX_LIMIT_MAX))
+	{
+		Sequence_DMX_MaxValue = SEQUENCE_DMX_MAX_VALUE;
+	}
+	else
+	{
+		Sequence_DMX_MaxValue = (uint8_t)l_Slot;
+	}
+}
 
 #define SEQUENCE_FADEUP_CH(channel,data)\
 		{SEQ_SELECT_CH, 	channel		}, 	/* SelectCH */\
@@ -143,9 +160,9 @@ static void Sequence_LED_RainbowUpdate(void)
 								&l_RainbowRGB[2u]);
 
 		l_RainbowChannel = WS2811_DMX_OFFSET + (l_RainbowPixel * 3u);
-		DMX_Channels[l_RainbowChannel + 0u] = (uint8_t)(((uint32_t)l_RainbowRGB[0u] * SEQUENCE_DMX_MAX_VALUE) / 255u);
-		DMX_Channels[l_RainbowChannel + 1u] = (uint8_t)(((uint32_t)l_RainbowRGB[1u] * SEQUENCE_DMX_MAX_VALUE) / 255u);
-		DMX_Channels[l_RainbowChannel + 2u] = (uint8_t)(((uint32_t)l_RainbowRGB[2u] * SEQUENCE_DMX_MAX_VALUE) / 255u);
+		DMX_Channels[l_RainbowChannel + 0u] = (uint8_t)(((uint32_t)l_RainbowRGB[0u] * Led_DMX_MaxValue) / 255u);
+		DMX_Channels[l_RainbowChannel + 1u] = (uint8_t)(((uint32_t)l_RainbowRGB[1u] * Led_DMX_MaxValue) / 255u);
+		DMX_Channels[l_RainbowChannel + 2u] = (uint8_t)(((uint32_t)l_RainbowRGB[2u] * Led_DMX_MaxValue) / 255u);
 	}
 }
 
@@ -177,11 +194,12 @@ static void app_Sequence_LimitChannels(void)
 {
 	uint8_t l_IDX;
 
-	for(l_IDX = 0u; l_IDX < N_Channels; l_IDX++)
+	/* Sequence limit covers AC + unused channels; LEDs have Led_DMX_MaxValue */
+	for(l_IDX = 0u; l_IDX < WS2811_DMX_OFFSET; l_IDX++)
 	{
-		if(DMX_Channels[l_IDX] > SEQUENCE_DMX_MAX_VALUE)
+		if(DMX_Channels[l_IDX] > Sequence_DMX_MaxValue)
 		{
-			DMX_Channels[l_IDX] = SEQUENCE_DMX_MAX_VALUE;
+			DMX_Channels[l_IDX] = Sequence_DMX_MaxValue;
 		}
 	}
 }
@@ -292,7 +310,15 @@ void app_SequenceCommandExec(T_Sequence* l_Sequence, T_SequenceState* l_State)
 		}break;
 		case SEQ_INIT_LOOP:
 		{
-			l_State->lul_LoopCounter = l_Sequence[l_State->lul_SeqStep].param;
+			/* Static table holds SEQUENCE_DMX_MAX_VALUE as "power loop" marker */
+			if(l_Sequence[l_State->lul_SeqStep].param == (uint32_t)SEQUENCE_DMX_MAX_VALUE)
+			{
+				l_State->lul_LoopCounter = (uint32_t)Sequence_DMX_MaxValue;
+			}
+			else
+			{
+				l_State->lul_LoopCounter = l_Sequence[l_State->lul_SeqStep].param;
+			}
 			l_State->lul_SeqStep++;
 			l_State->lul_FirstLoopStep = l_State->lul_SeqStep;
 		}break;

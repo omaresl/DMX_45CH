@@ -17,7 +17,12 @@
 #define TRUE_DATA	0xFC
 #define FALSE_DATA	0xC0
 
+/* Independent LED power limit (EEPROM slot 3); default and max */
+#define LED_DMX_DEFAULT			(200u)
+#define LED_DMX_LIMIT_MAX		(200u)
+
 extern uint8_t WS2811_Data[L_DATA_SIZE];
+extern uint8_t Led_DMX_MaxValue;
 
 extern void app_WS2811_Init(void);
 extern void app_WS2811_ConvertDMXData(void);

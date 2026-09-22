@@ -149,6 +149,9 @@ int main(void)
   app_DMXCore_Init();
   /* Start IWDG after app_DMXCore_Init: avoids reset during initial Flash_Erase, ~410ms nominal timeout */
   MX_IWDG_Init();
+  /* Runtime power limits from EEPROM (reads only, no erase) */
+  app_Sequence_Init();
+  app_ACControl_Init();
   HAL_TIM_Base_Start_IT(&htim6);
   app_WS2811_Init();
   HAL_SPI_Transmit_DMA(&hspi1, WS2811_Data, L_DATA_SIZE);

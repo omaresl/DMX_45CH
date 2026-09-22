@@ -45,15 +45,32 @@ void app_DMX_DMATransfer(void)
 
 void app_DMXCore_Init(void)
 {
-	Flash_Read_Data(EEPROM_START_ADDRESS, EEPROM_BlockTable, 1u);
-	if(EEPROM_BlockTable[0] > (N_RawChannels - N_Channels))
+	Flash_Read_Data(EEPROM_SLOT_ADDR(EEPROM_SLOT_DMX_START), EEPROM_BlockTable, 1u);
+	if(EEPROM_BlockTable[EEPROM_SLOT_DMX_START] > (N_RawChannels - N_Channels))
 	{
 		DMX_StartAddress = 1u;
-		EEPROM_BlockTable[0] = DMX_StartAddress;
-		Flash_Write_Data(EEPROM_START_ADDRESS, &EEPROM_BlockTable[0], 1u);
+		EEPROM_BlockTable[EEPROM_SLOT_DMX_START] = DMX_StartAddress;
+		Flash_Write_Data(EEPROM_SLOT_ADDR(EEPROM_SLOT_DMX_START), &EEPROM_BlockTable[EEPROM_SLOT_DMX_START], 1u);
 	}
 	else
 	{
-		DMX_StartAddress = (uint16_t)EEPROM_BlockTable[0];
+		DMX_StartAddress = (uint16_t)EEPROM_BlockTable[EEPROM_SLOT_DMX_START];
 	}
+}
+
+bool app_DMXCore_SetStartAddress(uint16_t l_Address)
+{
+	if((l_Address < 1u) || (l_Address > DMX_MAX_START_ADDRESS))
+	{
+		return false;
+	}
+	/* Read-modify-write: Flash_Write_Data erases the whole page */
+	Flash_Read_Data(EEPROM_START_ADDRESS, EEPROM_BlockTable, EEPROM_N_SLOTS);
+	EEPROM_BlockTable[EEPROM_SLOT_DMX_START] = (uint32_t)l_Address;
+	if(Flash_Write_Data(EEPROM_START_ADDRESS, EEPROM_BlockTable, EEPROM_N_SLOTS) != 0u)
+	{
+		return false;
+	}
+	DMX_StartAddress = l_Address;
+	return true;
 }

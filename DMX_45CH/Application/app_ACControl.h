@@ -13,6 +13,7 @@
 #define ACCONTROL_BASECNTR_MAX			255u
 #define ACCONTROL_DMXCNTR_MAX			255u
 #define ACCONTROL_VALUE_MAX				200u
+#define ACCONTROL_VALUE_LIMIT_MAX		200u
 #define ACCONTROL_ONCOUNTER_MAX			100u
 #define ACCONTROL_DMX_START_CHANNEL		1u
 
@@ -43,8 +44,12 @@
 
 
 
-	extern volatile uint16_t ACControl_MainTimeCounter;
-	extern volatile bool ACControl_ZeroCrossFound;
+ 	extern volatile uint16_t ACControl_MainTimeCounter;
+ 	extern volatile bool ACControl_ZeroCrossFound;
+
+	/* Runtime power limit (EEPROM slot 2), clamps phase values */
+	extern uint8_t ACControl_ValueMax;
+	extern void app_ACControl_Init(void);
 
 	extern void app_ACControl_ITTimeBaseHandler(void);
 	extern void app_ACControl_ITZeroCrossDetection(void);

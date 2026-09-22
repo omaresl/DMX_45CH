@@ -7,12 +7,29 @@
 #include "main.h"
 #include "app_ACControl.h"
 #include "app_DMXCore.h"
+#include "lib_Flash.h"
 
 extern TIM_HandleTypeDef htim2;
 
 volatile uint16_t ACControl_MainTimeCounter = 0;
 volatile bool ACControl_ZeroCrossFound = false;
 volatile uint8_t ACControl_DebounceWaveCnt = 0;
+uint8_t ACControl_ValueMax = ACCONTROL_VALUE_MAX;
+
+void app_ACControl_Init(void)
+{
+	uint32_t l_Slot;
+
+	Flash_Read_Data(EEPROM_SLOT_ADDR(EEPROM_SLOT_AC_LIMIT), &l_Slot, 1u);
+	if((l_Slot == 0xFFFFFFFFu) || ((uint8_t)l_Slot > ACCONTROL_VALUE_LIMIT_MAX))
+	{
+		ACControl_ValueMax = ACCONTROL_VALUE_MAX;
+	}
+	else
+	{
+		ACControl_ValueMax = (uint8_t)l_Slot;
+	}
+}
 static uint16_t ACControl_OnCounter[ACCONTROL_N_CHANNELS];
 static bool ACControl_Tick = false;
 
@@ -127,9 +144,9 @@ uint32_t ACTime;
 			}
 
 			ACControlTempValue = DMX_Channels[(ACCONTROL_DMX_START_CHANNEL-1u)+ACControl_IDX_Selector];
-			if(ACControlTempValue > ACCONTROL_VALUE_MAX)
+			if(ACControlTempValue > ACControl_ValueMax)
 			{
-				ACControlTempValue = ACCONTROL_VALUE_MAX;
+				ACControlTempValue = ACControl_ValueMax;
 			}
 			else{/* Do Nothing */}
 
