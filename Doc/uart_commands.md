@@ -35,6 +35,9 @@ ajustar límites de potencia, consultar estado, etc.
 | `CMD_SET_DMX_ADDR` | `0x02` | addr u16 (big-endian) | ACK/NACK |
 | `CMD_SET_POWER_LIMIT` | `0x03` | limite secuencias u8, limite AC u8, limite LED u8 | ACK/NACK |
 | `CMD_GET_STATUS` | `0x04` | — | addr u16, limites, estado, limite LED (6 B) |
+| `CMD_DISCOVER` | `0x05` | seed u8 | inventario 22 B en su slot (INFO 18 B + seq/ac/estado/LED) |
+| `CMD_SELECT_UID` | `0x06` | UID 12 B | `ACK` solo la coincidente |
+| `CMD_DESELECT` | `0x07` | — | sin respuesta (vuelve a broadcast) |
 
 ### Respuestas
 
@@ -77,19 +80,20 @@ ajustar límites de potencia, consultar estado, etc.
 - [x] `CMD_SET_DMX_ADDR` + EEPROM
 - [x] `CMD_SET_POWER_LIMIT` + EEPROM
 - [x] `CMD_GET_STATUS`
-- [x] `CMD_DISCOVER` (slotted backoff, 16 x 5 ms)
+- [x] `CMD_DISCOVER` (slotted backoff 16 x 5 ms, responde inventario 22 B)
 - [x] `CMD_SELECT_UID` / `CMD_DESELECT` (RAM selection, selective writes)
 - [x] Respuestas por el transceiver
 - [ ] Pruebas en hardware
 
 ## Selección (RAM, se pierde al reset)
+
 - Sin selección activa (boot): escrituras en broadcast.
-- `SELECT` lo ve todo el bus: activa selección global, solo el UID coincidente
-  queda seleccionado (único que responde `ACK` — los demás callan para no
-  colisionar). `DESELECT` limpia en todas.
+- `SELECT_UID` lo ve todo el bus: activa selección global, solo el UID
+  coincidente queda seleccionado (único que responde `ACK` — los demás
+  callan para no colisionar). `DESELECT` limpia en todas y vuelve a broadcast.
 - `SET_*` solo ejecuta la seleccionada cuando hay selección activa.
-  Lecturas (`GET_INFO`/`STATUS`, `DISCOVER`) responden siempre; con N>1 el
-  flujo es DISCOVER → SELECT → configurar.
+- Lecturas (`GET_INFO`/`STATUS`, `DISCOVER`) responden siempre; con N>1 el
+  flujo es DISCOVER → SELECT → configurar → DESELECT.
 
 ## Visual ACK (5 Hz strobe x 1 s, solo LEDs)
 

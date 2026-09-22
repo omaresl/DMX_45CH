@@ -21,6 +21,12 @@ extern UART_HandleTypeDef huart1;
 extern TIM_HandleTypeDef htim2;
 extern void HAL_LIN_WaitBreak_IT(UART_HandleTypeDef *huart);
 
+/* RAM selection: no selection active at boot (= broadcast writes).
+ * Any SELECT activates selection bus-wide (all receivers see it);
+ * only the UID match stays selected. DESELECT clears everywhere. */
+static bool rb_CMD_Selected = false;
+static bool rb_CMD_SelectionActive = false;
+
 void app_CMD_Respond(const uint8_t* l_Data, uint16_t l_Length)
 {
 	if((l_Data != NULL) && (l_Length > 0u))
@@ -53,8 +59,25 @@ static void app_CMD_GetInfo(void)
 	app_CMD_Respond(l_Response, (uint16_t)CMD_GET_INFO_LENGTH);
 }
 
+static void app_CMD_BuildStatusTail(uint8_t* l_Dst)
+{
+	l_Dst[0u] = Sequence_DMX_MaxValue;
+	l_Dst[1u] = ACControl_ValueMax;
+	l_Dst[2u] = 0u;
+	if(rb_EnableSequenceFlag != false)
+	{
+		l_Dst[2u] |= 0x01u; /* sequence running (DMX lost) */
+	}
+	if(rb_CMD_Selected != false)
+	{
+		l_Dst[2u] |= 0x02u; /* this unit selected */
+	}
+	l_Dst[3u] = Led_DMX_MaxValue;
+}
+
 static void app_CMD_Discover(uint8_t l_Seed)
 {
+	uint8_t l_Response[CMD_DISCOVER_LENGTH];
 	uint8_t l_IDX;
 	uint8_t l_Hash = 0u;
 	uint8_t l_Slot;
@@ -72,14 +95,17 @@ static void app_CMD_Discover(uint8_t l_Seed)
 	{
 		HAL_Delay((uint32_t)l_Slot * (uint32_t)CMD_DISCOVER_SLOT_MS);
 	}
-	app_CMD_GetInfo();
+	/* Full inventory in one shot: GET_INFO_RESP + limits/state tail */
+	(void)memcpy(&l_Response[0u], (const uint8_t*)UID_BASE, UID_LENGTH);
+	l_Response[12u] = (uint8_t)FW_VERSION_MAJOR;
+	l_Response[13u] = (uint8_t)FW_VERSION_MINOR;
+	l_Response[14u] = (uint8_t)((MODEL_ID >> 8u) & 0xFFu);
+	l_Response[15u] = (uint8_t)(MODEL_ID & 0xFFu);
+	l_Response[16u] = (uint8_t)((DMX_StartAddress >> 8u) & 0xFFu);
+	l_Response[17u] = (uint8_t)(DMX_StartAddress & 0xFFu);
+	app_CMD_BuildStatusTail(&l_Response[18u]);
+	app_CMD_Respond(l_Response, (uint16_t)CMD_DISCOVER_LENGTH);
 }
-
-/* RAM selection: no selection active at boot (= broadcast writes).
- * Any SELECT activates selection bus-wide (all receivers see it);
- * only the UID match stays selected. DESELECT clears everywhere. */
-static bool rb_CMD_Selected = false;
-static bool rb_CMD_SelectionActive = false;
 
 static void app_CMD_Select(void)
 {
@@ -106,11 +132,12 @@ static void app_CMD_Select(void)
 
 static void app_CMD_Deselect(void)
 {
+	/* Back to broadcast: no unit selected, all accept SET_* again */
 	rb_CMD_SelectionActive = false;
 	rb_CMD_Selected = false;
 }
 
-/* EEPROM slots: [1] sequence limit, [2] AC limit (u8 in u32, [3] reserved) */
+/* EEPROM slots: [0] start address, [1] sequence, [2] AC, [3] LED limits */
 static void app_CMD_SetPowerLimit(uint8_t l_SeqLimit, uint8_t l_AcLimit, uint8_t l_LedLimit)
 {
 	uint32_t l_Block[EEPROM_N_SLOTS];
@@ -154,22 +181,10 @@ static void app_CMD_SetPowerLimit(uint8_t l_SeqLimit, uint8_t l_AcLimit, uint8_t
 static void app_CMD_GetStatus(void)
 {
 	uint8_t l_Response[CMD_GET_STATUS_LENGTH];
-	uint8_t l_State = 0u;
 
 	l_Response[0u] = (uint8_t)((DMX_StartAddress >> 8u) & 0xFFu);
 	l_Response[1u] = (uint8_t)(DMX_StartAddress & 0xFFu);
-	l_Response[2u] = Sequence_DMX_MaxValue;
-	l_Response[3u] = ACControl_ValueMax;
-	if(rb_EnableSequenceFlag != false)
-	{
-		l_State |= 0x01u; /* sequence running (DMX lost) */
-	}
-	if(rb_CMD_Selected != false)
-	{
-		l_State |= 0x02u; /* this unit selected */
-	}
-	l_Response[4u] = l_State;
-	l_Response[5u] = Led_DMX_MaxValue;
+	app_CMD_BuildStatusTail(&l_Response[2u]);
 	app_CmdBlink_Trigger(255u, 255u, 255u); /* white */
 	app_CMD_Respond(l_Response, (uint16_t)CMD_GET_STATUS_LENGTH);
 }

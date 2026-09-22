@@ -37,6 +37,7 @@
 #define CMD_ACK_LENGTH			(2u)
 #define CMD_GET_INFO_LENGTH		(18u)
 #define CMD_GET_STATUS_LENGTH	(6u)
+#define CMD_DISCOVER_LENGTH		(22u) /* GET_INFO_RESP + seq/ac/state/led */
 
 /* TX timeout for blocking responses (18 B @250 kbps ~= 1 ms) */
 #define CMD_TX_TIMEOUT_MS		(100u)
